@@ -166,9 +166,9 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <div class="card stat"><span>Fuera de zona</span><b id="sFue" style="color:var(--bad)">0</b></div>
       </div>
       <div class="card tablebox">
-        <table style="min-width:900px">
-          <thead><tr><th>Foto</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Elemento</th><th>Puesto</th><th>Servicio</th><th>Ubicación</th></tr></thead>
-          <tbody id="aBody"><tr><td colspan="8" class="empty">Cargando registros…</td></tr></tbody>
+        <table style="min-width:980px">
+          <thead><tr><th>Foto</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Turno</th><th>Elemento</th><th>Puesto</th><th>Servicio</th><th>Ubicación</th></tr></thead>
+          <tbody id="aBody"><tr><td colspan="9" class="empty">Cargando registros…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -186,7 +186,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
       </div>
       <div class="card tablebox">
         <table style="min-width:760px">
-          <thead><tr><th>Elemento</th><th>No.</th><th>Puesto</th><th>Servicio base</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th>Elemento</th><th>No.</th><th>Puesto</th><th>Servicio base</th><th>Turno</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead>
           <tbody id="eBody"></tbody>
         </table>
       </div>
@@ -240,6 +240,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <label class="f">Teléfono<input id="feTel" type="tel"></label>
         <label class="f">Puesto<input id="fePuesto" type="text" list="dlPuestos" required></label>
         <label class="f">Servicio base<select id="feServ"></select></label>
+        <label class="f">Turno<select id="feTurno"><option value="">Sin turno fijo (12x12 por hora)</option><option>12x12 D</option><option>12x12 N</option><option>24x24</option><option>12x24</option><option>12x36</option></select></label>
         <label class="switch full"><span><b style="display:block">Activo</b><span class="sub" style="font-size:14px">Si lo das de baja, deja de aparecer en el checador. Su historial se conserva.</span></span><input id="feActivo" type="checkbox" checked></label>
       </div>
     </div>
@@ -247,7 +248,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <div class="actions"><button class="btn" type="button" id="feCancel">Cancelar</button><button class="btn primary" type="submit" id="feGuardar">Guardar elemento</button></div>
   </form>
 </dialog>
-<datalist id="dlPuestos"><option value="Guardia"><option value="Guardia armado"><option value="Jefe de turno"><option value="Supervisor"><option value="Escolta"><option value="Monitorista"><option value="Jefe de Servicio"><option value="Rondinero"><option value="Paquetero"><option value="Administrativo"></datalist>
+<datalist id="dlPuestos"><option value="Guardia"><option value="Guardia armado"><option value="Jefe de turno"><option value="Jefe de Servicio"><option value="Coordinador"><option value="Coordinadora"><option value="Supervisor"><option value="Escolta"><option value="Monitorista"></datalist>
 
 <!-- Diálogo: servicio -->
 <dialog id="dServ">
@@ -418,7 +419,7 @@ async function cargarRegistros() {
     pintarRegistros();
     $('#aVivo').textContent = 'Actualizado ' + fHM.format(new Date());
   } catch (e) {
-    $('#aBody').innerHTML = `<tr><td colspan="8" class="empty">No se pudieron cargar los registros: ${esc(e.message)}</td></tr>`;
+    $('#aBody').innerHTML = `<tr><td colspan="9" class="empty">No se pudieron cargar los registros: ${esc(e.message)}</td></tr>`;
   } finally { cargando = false; if (otraVez) { otraVez = false; cargarRegistros(); } }
 }
 async function pintarRegistros() {
@@ -427,7 +428,7 @@ async function pintarRegistros() {
   $('#sCub').textContent = registros.filter(r => r.cubre).length;
   $('#sFue').textContent = registros.filter(r => r.fuera_zona).length;
   const B = $('#aBody');
-  if (!registros.length) { B.innerHTML = '<tr><td colspan="8" class="empty">No hay registros en este periodo. En cuanto alguien cheque, aparece aquí.</td></tr>'; return; }
+  if (!registros.length) { B.innerHTML = '<tr><td colspan="9" class="empty">No hay registros en este periodo. En cuanto alguien cheque, aparece aquí.</td></tr>'; return; }
   const vis = registros.slice(0, 500);
   B.innerHTML = vis.map((r, i) => {
     const d = new Date(r.fecha_hora);
@@ -441,11 +442,12 @@ async function pintarRegistros() {
       <td class="mono">${fFecha.format(d)}</td>
       <td class="mono">${fHora.format(d)}${r.diferido ? '<div class="tag warn" style="font-family:var(--body)">Sin señal</div>' : ''}</td>
       <td><span class="pill ${r.tipo}">${r.tipo}</span></td>
+      <td class="mono">${esc(r.turno || '—')}</td>
       <td><b style="font-weight:600">${esc(r.empleado)}</b>${r.cubre ? `<div class="tag warn">Cubre · base ${esc(r.servicio_base || 'sin asignar')}</div>` : ''}</td>
       <td>${esc(r.puesto)}</td>
       <td>${esc(r.servicio)}</td>
       <td>${ub}</td></tr>`;
-  }).join('') + (registros.length > 500 ? `<tr><td colspan="8" class="empty">Se muestran los 500 más recientes de ${registros.length}. Los reportes incluyen todos.</td></tr>` : '');
+  }).join('') + (registros.length > 500 ? `<tr><td colspan="9" class="empty">Se muestran los 500 más recientes de ${registros.length}. Los reportes incluyen todos.</td></tr>` : '');
   const get = await urlsFirmadas(vis.map(r => r.foto_path));
   $$('#aBody .thumb').forEach(b => {
     const r = vis[+b.dataset.i]; const u = r && get(r.foto_path);
@@ -491,22 +493,22 @@ $('#aExcel').onclick = async () => {
     progreso('Generando Excel…');
     const wb = new ExcelJS.Workbook(); wb.creator = 'SISERO';
     const ws = wb.addWorksheet('Turnos', { views: [{ state: 'frozen', ySplit: 4 }] });
-    ws.mergeCells('A1:L1'); ws.getCell('A1').value = 'SISERO · Reporte de asistencia por turno';
+    ws.mergeCells('A1:M1'); ws.getCell('A1').value = 'SISERO · Reporte de asistencia por turno';
     ws.getCell('A1').font = { bold: true, size: 15, color: { argb: 'FF0B2C55' } };
-    ws.mergeCells('A2:L2'); ws.getCell('A2').value = `${etiquetaServ(p)} · del ${fechaCorta(p.desde)} al ${fechaCorta(p.hasta)} · generado ${fGen.format(new Date())}`;
+    ws.mergeCells('A2:M2'); ws.getCell('A2').value = `${etiquetaServ(p)} · del ${fechaCorta(p.desde)} al ${fechaCorta(p.hasta)} · generado ${fGen.format(new Date())}`;
     ws.getCell('A2').font = { color: { argb: 'FF5B6470' } };
-    const cols = [['Elemento', 28], ['No.', 9], ['Puesto', 18], ['Servicio', 20], ['Servicio base', 20], ['Fecha', 12], ['Entrada', 12], ['Foto entrada', 13], ['Salida', 14], ['Foto salida', 13], ['Horas', 9], ['Observaciones', 40]];
+    const cols = [['Elemento', 28], ['No.', 9], ['Puesto', 18], ['Servicio', 20], ['Servicio base', 20], ['Turno', 10], ['Fecha', 12], ['Entrada', 12], ['Foto entrada', 13], ['Salida', 14], ['Foto salida', 13], ['Horas', 9], ['Observaciones', 40]];
     ws.columns = cols.map(([h, w]) => ({ width: w }));
     const head = ws.getRow(4); head.values = cols.map(c => c[0]); head.height = 22;
     head.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0B2C55' } }; c.alignment = { vertical: 'middle' }; });
     const FOTO = 78;
     turnos.forEach((t, i) => {
       const row = ws.getRow(5 + i);
-      row.values = [t.empleado, t.numero || '', t.puesto, t.servicio, t.servicio_base || '', fechaCorta(t.fecha), horaTurno(t.entrada, t.fecha), '', horaTurno(t.salida, t.fecha) || 'Sin salida', '', durTxt(t.minutos), obsTurno(t)];
+      row.values = [t.empleado, t.numero || '', t.puesto, t.servicio, t.servicio_base || '', t.turno || '', fechaCorta(t.fecha), horaTurno(t.entrada, t.fecha), '', horaTurno(t.salida, t.fecha) || 'Sin salida', '', durTxt(t.minutos), obsTurno(t)];
       row.height = FOTO * 0.78; row.alignment = { vertical: 'middle', wrapText: true };
-      if (!t.salida) row.getCell(9).font = { color: { argb: 'FFB3261E' }, bold: true };
-      if (!t.entrada) row.getCell(7).value = 'Sin entrada';
-      [[t.entrada_foto, 7], [t.salida_foto, 9]].forEach(([path, col]) => {
+      if (!t.salida) row.getCell(10).font = { color: { argb: 'FFB3261E' }, bold: true };
+      if (!t.entrada) row.getCell(8).value = 'Sin entrada';
+      [[t.entrada_foto, 8], [t.salida_foto, 10]].forEach(([path, col]) => {
         const f = fotos.get(path); if (!f) return;
         const k = (FOTO - 6) / Math.max(f.w, f.h);
         const id = wb.addImage({ base64: f.d, extension: 'jpeg' });
@@ -559,16 +561,16 @@ $('#aPdf').onclick = async () => {
     const deFila = new Map();
     const body = turnos.map(t => { const fila = [
       t.empleado + '\n' + t.puesto + (t.cubre ? '\nCubre · base ' + (t.servicio_base || 'sin asignar') : '') + (p.servicio ? '' : '\n' + t.servicio),
-      fechaCorta(t.fecha), '', t.entrada ? horaTurno(t.entrada, t.fecha) : 'Sin entrada', '', t.salida ? horaTurno(t.salida, t.fecha) : 'Sin salida', durTxt(t.minutos)
+      fechaCorta(t.fecha) + (t.turno ? '\n' + t.turno : ''), '', t.entrada ? horaTurno(t.entrada, t.fecha) : 'Sin entrada', '', t.salida ? horaTurno(t.salida, t.fecha) : 'Sin salida', durTxt(t.minutos)
     ]; deFila.set(fila, t); return fila; });
     doc.autoTable({
       startY: by + 20, margin: { left: M, right: M, top: 14, bottom: 14 },
-      head: [['Elemento', 'Fecha', 'Foto', 'Entrada', 'Foto', 'Salida', 'Horas']], body,
+      head: [['Elemento', 'Fecha / turno', 'Foto', 'Entrada', 'Foto', 'Salida', 'Horas']], body,
       theme: 'grid', rowPageBreak: 'avoid',
       styles: { font: 'helvetica', fontSize: 8.6, cellPadding: 1.8, valign: 'middle', lineColor: [213, 219, 227], lineWidth: 0.2, textColor: [20, 26, 34] },
       headStyles: { fillColor: navy, textColor: 255, fontStyle: 'bold' },
       bodyStyles: { minCellHeight: 24 },
-      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 20 }, 2: { cellWidth: 20 }, 3: { cellWidth: 22, fontStyle: 'bold', textColor: [47, 106, 163] }, 4: { cellWidth: 20 }, 5: { cellWidth: 24, fontStyle: 'bold', textColor: [63, 68, 75] }, 6: { cellWidth: 15, halign: 'right', fontStyle: 'bold' } },
+      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 21 }, 2: { cellWidth: 20 }, 3: { cellWidth: 22, fontStyle: 'bold', textColor: [47, 106, 163] }, 4: { cellWidth: 20 }, 5: { cellWidth: 24, fontStyle: 'bold', textColor: [63, 68, 75] }, 6: { cellWidth: 15, halign: 'right', fontStyle: 'bold' } },
       didParseCell: d => {
         if (d.section === 'head' && (d.column.index === 3)) d.cell.styles.fillColor = [47, 106, 163];
         if (d.section === 'head' && (d.column.index === 5)) d.cell.styles.fillColor = [63, 68, 75];
@@ -607,10 +609,10 @@ async function pintarElementos() {
   $('#eSub').textContent = `${act} activos en ${new Set(empleados.filter(e => e.activo && e.servicio_base_id).map(e => e.servicio_base_id)).size} servicios · solo los activos aparecen en el checador`;
   const lista = empleados.filter(e => (!solo || e.activo) && (!sv || e.servicio_base_id === sv) && (!q || norm(e.nombre).includes(q) || (e.numero || '').includes(q)));
   const B = $('#eBody');
-  if (!lista.length) { B.innerHTML = `<tr><td colspan="7" class="empty">${empleados.length ? 'Nadie coincide con la búsqueda.' : 'Todavía no hay elementos. Da de alta el primero con el botón de arriba.'}</td></tr>`; return; }
+  if (!lista.length) { B.innerHTML = `<tr><td colspan="8" class="empty">${empleados.length ? 'Nadie coincide con la búsqueda.' : 'Todavía no hay elementos. Da de alta el primero con el botón de arriba.'}</td></tr>`; return; }
   B.innerHTML = lista.map(e => `<tr>
     <td><div class="person"><div class="av" data-foto="${esc(e.foto_path || '')}">${esc(ini(e.nombre))}</div><b style="font-weight:600">${esc(e.nombre)}</b></div></td>
-    <td class="mono">${esc(e.numero || '')}</td><td>${esc(e.puesto)}</td><td>${esc(nombreServ(e.servicio_base_id) || 'Sin asignar')}</td>
+    <td class="mono">${esc(e.numero || '')}</td><td>${esc(e.puesto)}</td><td>${esc(nombreServ(e.servicio_base_id) || 'Sin asignar')}</td><td class="mono">${esc(e.turno || '—')}</td>
     <td class="mono">${esc(e.telefono || '')}</td>
     <td><span class="pill ${e.activo ? 'on' : 'off'}">${e.activo ? 'Activo' : 'Baja'}</span></td>
     <td style="text-align:right"><button class="btn sm" type="button" data-id="${e.id}">Editar</button></td></tr>`).join('');
@@ -623,7 +625,7 @@ function abrirElemento(e) {
   editE = e || null; fotoE = null;
   $('#feTitulo').textContent = e ? 'Editar elemento' : 'Dar de alta elemento';
   $('#feNombre').value = e ? e.nombre : ''; $('#feNumero').value = e ? e.numero || '' : ''; $('#feTel').value = e ? e.telefono || '' : '';
-  $('#fePuesto').value = e ? e.puesto : ''; $('#feServ').value = e ? e.servicio_base_id || '' : ($('#eServ').value || ''); $('#feActivo').checked = e ? e.activo : true;
+  $('#fePuesto').value = e ? e.puesto : ''; $('#feServ').value = e ? e.servicio_base_id || '' : ($('#eServ').value || ''); $('#feActivo').checked = e ? e.activo : true; $('#feTurno').value = e ? e.turno || '' : '';
   $('#feMsg').hidden = true;
   const box = $('#feFotoBox'); box.textContent = 'Subir o tomar foto';
   if (e && e.foto_path) urlsFirmadas([e.foto_path]).then(get => { const u = get(e.foto_path); if (u && editE === e && !fotoE) box.innerHTML = `<img src="${u}" alt="Foto de alta">`; });
@@ -638,7 +640,7 @@ $('#feFoto').onchange = async ev => {
 $('#fElem').onsubmit = async ev => {
   ev.preventDefault();
   const msg = t => { $('#feMsg').hidden = false; $('#feMsg').textContent = t; };
-  const fila = { nombre: $('#feNombre').value.trim().replace(/\s+/g, ' '), numero: $('#feNumero').value.trim() || null, telefono: $('#feTel').value.trim() || null, puesto: $('#fePuesto').value.trim(), servicio_base_id: $('#feServ').value || null, activo: $('#feActivo').checked };
+  const fila = { nombre: $('#feNombre').value.trim().replace(/\s+/g, ' '), numero: $('#feNumero').value.trim() || null, telefono: $('#feTel').value.trim() || null, puesto: $('#fePuesto').value.trim(), servicio_base_id: $('#feServ').value || null, turno: $('#feTurno').value || null, activo: $('#feActivo').checked };
   if (!fila.nombre || !fila.puesto) { msg('Escribe el nombre completo y el puesto.'); return; }
   const btn = $('#feGuardar'); btn.disabled = true;
   try {
