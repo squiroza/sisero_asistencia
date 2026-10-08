@@ -98,6 +98,15 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
 .progress{font-size:14px;color:var(--muted)}
 .viewer{position:fixed;inset:0;background:rgba(0,0,0,.85);display:grid;place-items:center;z-index:50;padding:20px}
 .viewer img{max-height:88vh;border-radius:10px}
+.dias{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.dias label{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--muted)}
+.dias input{width:100%;height:42px;text-align:center;border-radius:8px;border:1px solid var(--field);font:600 16px var(--mono);color:var(--ink)}
+.cob{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.cob .card{padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.cob .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.cob b.n{font-family:var(--display);font-style:italic;font-weight:800;font-size:26px;font-variant-numeric:tabular-nums}
+.bar{height:6px;border-radius:999px;background:var(--line-2);overflow:hidden}
+.bar span{display:block;height:100%;border-radius:999px}
 .svcs{display:flex;flex-direction:column;gap:10px}
 .svc{padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
 .svc .meta{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);align-items:center}
@@ -164,6 +173,10 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <div class="card stat"><span>Salidas</span><b id="sSal" style="color:var(--gray)">0</b></div>
         <div class="card stat"><span>Coberturas</span><b id="sCub" style="color:var(--warn)">0</b></div>
         <div class="card stat"><span>Fuera de zona</span><b id="sFue" style="color:var(--bad)">0</b></div>
+      </div>
+      <div id="cobBox" style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><b style="font-family:var(--display);font-style:italic;font-weight:800;font-size:20px">Cobertura de hoy</b><span class="sub" style="font-size:13px">Elementos distintos que checaron entrada hoy contra los requeridos del día</span></div>
+        <div class="cob" id="cobLista"></div>
       </div>
       <div class="card tablebox">
         <table style="min-width:980px">
@@ -265,7 +278,13 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <span class="sub" style="font-size:13px">O pega las coordenadas desde Google Maps (clic derecho sobre el punto).</span>
       </div>
       <label class="f">Radio permitido (metros)<input id="fsRadio" type="number" min="20" max="5000" value="150"></label>
-      <label class="f">Elementos por turno<input id="fsTurno" type="number" min="0" value="1"></label>
+      <div class="f full" style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:600;color:var(--muted)">Elementos requeridos por día (0 = no abre)</span>
+        <div class="dias" id="fsDias">
+          <label>L<input type="number" min="0" inputmode="numeric" aria-label="Lunes"></label><label>M<input type="number" min="0" inputmode="numeric" aria-label="Martes"></label><label>Mi<input type="number" min="0" inputmode="numeric" aria-label="Miércoles"></label><label>J<input type="number" min="0" inputmode="numeric" aria-label="Jueves"></label><label>V<input type="number" min="0" inputmode="numeric" aria-label="Viernes"></label><label>S<input type="number" min="0" inputmode="numeric" aria-label="Sábado"></label><label>D<input type="number" min="0" inputmode="numeric" aria-label="Domingo"></label>
+        </div>
+        <span class="sub" style="font-size:13px">Escribe el primero y toca “Copiar a todos”, luego ajusta los días distintos.</span>
+        <button class="btn sm" type="button" id="fsCopiar" style="align-self:flex-start">Copiar a todos</button>
+      </div>
       <label class="switch full"><span><b style="display:block">Activo</b><span class="sub" style="font-size:14px">Un servicio inactivo no aparece para asignar.</span></span><input id="fsActivo" type="checkbox" checked></label>
     </div>
     <div id="fsMsg" class="msg bad" hidden></div>
@@ -406,6 +425,32 @@ function periodo() {
   return { desde: d, hasta: h, servicio: $('#aServ').value || null };
 }
 let cargando = false, otraVez = false;
+let entradasHoy = [];
+async function cargarCobertura() {
+  const h = hoyISO();
+  const { data } = await sb.from('registros').select('servicio_id,empleado_id').eq('tipo', 'Entrada').gte('fecha_hora', inicioDia(h)).lt('fecha_hora', inicioDia(sumaDias(h, 1))).limit(5000);
+  entradasHoy = data || [];
+  pintarCobertura();
+}
+function pintarCobertura() {
+  const d = diaHoy(), filtro = $('#aServ').value;
+  const lista = servicios.filter(s => s.activo && (!filtro || s.id === filtro)).map(s => {
+    const req = reqDe(s)[d] || 0;
+    const llegaron = new Set(entradasHoy.filter(r => r.servicio_id === s.id).map(r => r.empleado_id)).size;
+    return { s, req, llegaron };
+  }).filter(x => x.req > 0 || x.llegaron > 0);
+  const L = $('#cobLista');
+  if (!lista.length) { L.innerHTML = '<div class="card empty" style="grid-column:1/-1">Ningún servicio requiere personal hoy.</div>'; return; }
+  lista.sort((a, b) => (a.llegaron - a.req) - (b.llegaron - b.req) || a.s.nombre.localeCompare(b.s.nombre, 'es'));
+  L.innerHTML = lista.map(({ s, req, llegaron }) => {
+    const falta = req - llegaron;
+    const [txt, cls, col] = req === 0 ? ['No abre hoy', 'mut', 'var(--muted)'] : falta > 0 ? [`Faltan ${falta}`, 'bad', 'var(--bad)'] : falta < 0 ? [`${-falta} de más`, 'warn', 'var(--warn)'] : ['Completo', 'ok', 'var(--ok)'];
+    const pct = req ? Math.min(100, Math.round(llegaron / req * 100)) : 100;
+    return `<div class="card"><div class="row"><b style="font-weight:600;min-width:0">${esc(s.nombre)}</b><span class="tag ${cls}">${txt}</span></div>
+      <div class="row"><b class="n">${llegaron}<span style="font-size:16px;color:var(--muted)"> / ${req}</span></b></div>
+      <div class="bar"><span style="width:${pct}%;background:${col}"></span></div></div>`;
+  }).join('');
+}
 async function cargarRegistros() {
   if (cargando) { otraVez = true; return; }
   cargando = true;
@@ -416,6 +461,7 @@ async function cargarRegistros() {
     const { data, error } = await q;
     if (error) throw error;
     registros = data || [];
+    await cargarCobertura();
     pintarRegistros();
     $('#aVivo').textContent = 'Actualizado ' + fHM.format(new Date());
   } catch (e) {
@@ -659,6 +705,19 @@ $('#fElem').onsubmit = async ev => {
 };
 
 /* =================== SERVICIOS =================== */
+const DIAS = ['L', 'M', 'Mi', 'J', 'V', 'S', 'D'];
+function reqDe(s) { if (s && Array.isArray(s.requeridos) && s.requeridos.length === 7) return s.requeridos; const n = s ? (s.elementos_turno ?? 1) : 1; return [n, n, n, n, n, n, n]; }
+function diasInputs() { return [...document.querySelectorAll('#fsDias input')]; }
+function diasValores() { return diasInputs().map(i => Math.max(0, parseInt(i.value, 10) || 0)); }
+function resumenDias(r) {
+  const grupos = []; let i = 0;
+  while (i < 7) { let j = i; while (j + 1 < 7 && r[j + 1] === r[i]) j++; grupos.push([i, j, r[i]]); i = j + 1; }
+  if (grupos.length === 1) return `${r[0]} por día`;
+  return grupos.map(([a, b, n]) => `${a === b ? DIAS[a] : DIAS[a] + '–' + DIAS[b]} ${n || 'cerrado'}`).join(' · ');
+}
+// Lunes = 0 … Domingo = 6, en la zona horaria del negocio
+const fDow = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' });
+const diaHoy = () => ({ Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 })[fDow.format(new Date())];
 function pintarServicios() {
   const L = $('#sLista');
   if (!servicios.length) { L.innerHTML = '<div class="card empty">Todavía no hay servicios. Da de alta el primero con el botón de arriba.</div>'; return; }
@@ -666,7 +725,7 @@ function pintarServicios() {
     const ne = empleados.filter(e => e.activo && e.servicio_base_id === s.id).length;
     const nc = dispositivos.filter(d => d.activo && d.servicio_id === s.id).length;
     const gps = s.lat != null ? `<span class="tag ok">GPS listo · ${s.radio_m} m</span>` : '<span class="tag warn">Falta ubicación</span>';
-    return `<div class="card svc"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:17px">${esc(s.nombre)}${s.activo ? '' : ' <span class="pill off">Inactivo</span>'}</b><span class="sub" style="font-size:14px">${esc(s.cliente ? 'Cliente: ' + s.cliente : 'Sin cliente')} · ${s.elementos_turno} por turno${s.direccion ? ' · ' + esc(s.direccion) : ''}</span></div>
+    return `<div class="card svc"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:17px">${esc(s.nombre)}${s.activo ? '' : ' <span class="pill off">Inactivo</span>'}</b><span class="sub" style="font-size:14px">${esc(s.cliente ? 'Cliente: ' + s.cliente : 'Sin cliente')} · ${esc(resumenDias(reqDe(s)))}${s.direccion ? ' · ' + esc(s.direccion) : ''}</span></div>
       <div class="meta"><span><b>${ne}</b> elementos</span>${nc ? `<span><b>${nc}</b> celular${nc > 1 ? 'es' : ''}</span>` : '<span class="tag warn">Sin celular</span>'}${gps}<button class="btn sm" type="button" data-id="${s.id}">Editar</button></div></div>`;
   }).join('');
   $$('#sLista button[data-id]').forEach(b => b.onclick = () => abrirServicio(servicios.find(x => x.id === b.dataset.id)));
@@ -680,11 +739,12 @@ function abrirServicio(s) {
   editS = s || null;
   $('#fsTitulo').textContent = s ? 'Editar servicio' : 'Dar de alta servicio';
   $('#fsNombre').value = s ? s.nombre : ''; $('#fsCliente').value = s ? s.cliente || '' : ''; $('#fsDir').value = s ? s.direccion || '' : '';
-  $('#fsCoord').value = coordTxt(s); $('#fsRadio').value = s ? s.radio_m : 150; $('#fsTurno').value = s ? s.elementos_turno : 1; $('#fsActivo').checked = s ? s.activo : true;
+  $('#fsCoord').value = coordTxt(s); $('#fsRadio').value = s ? s.radio_m : 150; diasInputs().forEach((inp, i) => { inp.value = reqDe(s)[i]; }); $('#fsActivo').checked = s ? s.activo : true;
   $('#fsMsg').hidden = true; mapaLink(); $('#dServ').showModal(); $('#fsNombre').focus();
 }
 $('#sNuevo').onclick = () => abrirServicio(null);
 $('#fsCancel').onclick = () => $('#dServ').close();
+$('#fsCopiar').onclick = () => { const v = diasInputs()[0].value; diasInputs().forEach(i => { i.value = v; }); };
 $('#fsAqui').onclick = () => {
   const m = $('#fsMsg');
   if (!navigator.geolocation) { m.hidden = false; m.textContent = 'Este navegador no da la ubicación.'; return; }
@@ -700,7 +760,7 @@ $('#fServ').onsubmit = async ev => {
   const ct = $('#fsCoord').value.trim(), c = parseCoord(ct);
   if (ct && !c) { msg('Las coordenadas no son válidas. Ejemplo: 19.4326, -99.1332'); return; }
   const fila = { nombre, cliente: $('#fsCliente').value.trim() || null, direccion: $('#fsDir').value.trim() || null, lat: c ? c.lat : null, lng: c ? c.lng : null,
-    radio_m: Math.min(5000, Math.max(20, parseInt($('#fsRadio').value, 10) || 150)), elementos_turno: Math.max(0, parseInt($('#fsTurno').value, 10) || 0), activo: $('#fsActivo').checked };
+    radio_m: Math.min(5000, Math.max(20, parseInt($('#fsRadio').value, 10) || 150)), requeridos: diasValores(), elementos_turno: Math.max(...diasValores()), activo: $('#fsActivo').checked };
   try {
     const r = editS ? await sb.from('servicios').update(fila).eq('id', editS.id) : await sb.from('servicios').insert(fila);
     if (r.error) throw r.error;
