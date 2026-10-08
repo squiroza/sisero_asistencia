@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b2c55">
-<title>SISERO Checador</title>
+<title>SISERO Asistencia</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="../assets/favicon.png">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
@@ -71,7 +71,13 @@ h2{font-family:var(--display);font-style:italic;font-weight:800;font-size:23px;m
 .seg button{font-family:var(--display);font-style:italic;font-weight:800;font-size:21px;text-transform:uppercase;height:58px;border-radius:12px;border:2px solid var(--line);background:var(--surface);color:var(--muted)}
 .seg button[aria-pressed="true"][data-t="Entrada"]{border-color:var(--blue);background:var(--blue-bg);color:var(--blue)}
 .seg button[aria-pressed="true"][data-t="Salida"]{border-color:var(--gray);background:var(--gray-bg);color:var(--gray)}
-.cam{height:210px;border-radius:14px;border:2px dashed #9aa9bb;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--navy);font-weight:600;font-size:18px;overflow:hidden;position:relative}
+.turnos{display:flex;flex-direction:column;gap:6px}
+.turnos .lbl{font-size:13px;font-weight:600;color:var(--muted)}
+.turnos .opts{display:flex;flex-wrap:wrap;gap:6px}
+.turnos button{height:40px;padding:0 12px;border-radius:999px;border:1px solid #c8d0da;background:var(--surface);color:var(--gray);font-weight:600;font-size:15px}
+.turnos button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+.turnos .fijo{font-size:15px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.cam{height:190px;border-radius:14px;border:2px dashed #9aa9bb;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--navy);font-weight:600;font-size:18px;overflow:hidden;position:relative}
 .cam.has{border-style:solid;border-color:var(--navy);background:#dfe7f1}
 .cam img{height:100%;width:auto;max-width:100%;object-fit:cover}
 .cam .redo{position:absolute;bottom:8px;right:8px;background:rgba(11,44,85,.85);color:#fff;font-size:13px;padding:4px 10px;border-radius:999px}
@@ -113,7 +119,7 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
   <!-- Inicio de sesión del celular -->
   <section id="vLogin" class="login" hidden>
     <img class="big" src="../assets/sisero-logo.png" alt="SISERO">
-    <div style="text-align:center"><div class="eyebrow">Checador de asistencia</div></div>
+    <div style="text-align:center"><div class="eyebrow">Registro de asistencia</div></div>
     <form id="fLogin" style="display:flex;flex-direction:column;gap:14px" novalidate>
       <label class="f">Correo del celular<input id="lEmail" type="email" autocomplete="username" inputmode="email" required></label>
       <label class="f">Contraseña<input id="lPass" type="password" autocomplete="current-password" required></label>
@@ -136,7 +142,7 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
   <section id="vBuscar" hidden style="display:flex;flex-direction:column">
     <div class="brandbar">
       <div class="logo"><img src="../assets/sisero-icono.png" alt=""><img src="../assets/sisero-texto.png" alt="SISERO"></div>
-      <span class="eyebrow">Checador</span>
+      <span class="eyebrow">Asistencia</span>
     </div>
     <div class="band">
       <div class="row">
@@ -170,6 +176,11 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
       <div class="seg">
         <button type="button" data-t="Entrada" aria-pressed="true">Entrada</button>
         <button type="button" data-t="Salida" aria-pressed="false">Salida</button>
+      </div>
+      <div class="turnos" id="cTurnos">
+        <span class="lbl" id="cTurnoLbl">Turno</span>
+        <div class="opts" id="cTurnoOpts" role="group" aria-label="Turno"></div>
+        <div class="fijo" id="cTurnoFijo" hidden></div>
       </div>
       <label class="cam" id="cCam" for="cInput">
         <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#0b2c55" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
@@ -226,6 +237,8 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'x' + Date.now().t
 
 let info = store.get('sisero_info', null);       // servicio del celular
 let elementos = store.get('sisero_elementos', []);
+const TURNOS = ['12x12 D', '12x12 N', '24x24', '12x24', '12x36'];
+let turno = null;
 let sel = null, tipo = 'Entrada', foto = null, gps = null, enviando = false, cuentaTimer = null;
 const fotosAlta = new Map();
 
@@ -278,7 +291,7 @@ async function cargarElementos() {
   if (!$('#vBuscar').hidden) pintarLista();
 }
 function tocaA(e) {
-  if (e.ultimo_tipo === 'Entrada' && e.ultimo_hora && Date.now() - new Date(e.ultimo_hora).getTime() < 24 * 3600e3) return 'Salida';
+  if (e.ultimo_tipo === 'Entrada' && e.ultimo_hora && Date.now() - new Date(e.ultimo_hora).getTime() < 30 * 3600e3) return 'Salida';
   return 'Entrada';
 }
 function pintarLista() {
@@ -312,6 +325,26 @@ function setTipo(t) {
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
   $('#cBtn').textContent = 'Registrar ' + t.toLowerCase();
   $('#cBtn').classList.toggle('salida', t === 'Salida');
+  pintarTurno();
+}
+const fHoraNum = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hour12: false });
+function turnoSugerido(e) {
+  if (e && ['24x24', '12x24', '12x36'].includes(e.turno)) return e.turno;
+  const h = parseInt(fHoraNum.format(new Date()), 10) % 24;
+  return h >= 5 && h <= 16 ? '12x12 D' : '12x12 N';
+}
+function turnoDeEntrada(e) {
+  return e && e.ultimo_tipo === 'Entrada' && e.ultimo_turno && e.ultimo_hora && Date.now() - new Date(e.ultimo_hora).getTime() < 30 * 3600e3 ? e.ultimo_turno : null;
+}
+function pintarTurno() {
+  if (!sel) return;
+  const hered = tipo === 'Salida' ? turnoDeEntrada(sel) : null;
+  $('#cTurnoOpts').hidden = !!hered; $('#cTurnoFijo').hidden = !hered;
+  if (hered) { turno = hered; $('#cTurnoLbl').textContent = 'Turno'; $('#cTurnoFijo').textContent = `${hered} · el de su entrada`; return; }
+  if (!turno || !TURNOS.includes(turno)) turno = turnoSugerido(sel);
+  $('#cTurnoLbl').textContent = tipo === 'Entrada' ? 'Turno · propuesto por la hora, toca para cambiar' : 'Turno';
+  const O = $('#cTurnoOpts'); O.innerHTML = '';
+  TURNOS.forEach(t => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.setAttribute('aria-pressed', t === turno); b.onclick = () => { turno = t; pintarTurno(); }; O.appendChild(b); });
 }
 document.querySelectorAll('.seg button').forEach(b => b.onclick = () => setTipo(b.dataset.t));
 
@@ -334,6 +367,7 @@ function abrir(e, tipoForzado) {
   const cubre = e.base_id !== info.servicio_id;
   $('#cCubre').hidden = !cubre;
   if (cubre) $('#cCubre').innerHTML = `<b>Cubriendo en ${esc(info.servicio)}.</b> Su servicio base es ${esc(e.base_nombre || 'sin asignar')}. El registro queda en ${esc(info.servicio)}.`;
+  turno = turnoSugerido(e);
   setTipo(tipoForzado || tocaA(e));
   pintarFoto(); fotoAlta(e); pedirGps();
   ver('vConfirmar');
@@ -399,7 +433,7 @@ async function subir(item) {
   }
   const { data, error } = await sb.rpc('registrar_asistencia', {
     p_client_id: item.client_id, p_empleado: item.empleado_id, p_tipo: item.tipo,
-    p_lat: item.lat, p_lng: item.lng, p_precision: item.acc, p_foto_path: path, p_hora_celular: item.hora
+    p_lat: item.lat, p_lng: item.lng, p_precision: item.acc, p_foto_path: path, p_hora_celular: item.hora, p_turno: item.turno || null
   });
   if (error) throw error;
   return data;
@@ -410,7 +444,7 @@ $('#cBtn').onclick = async () => {
   if (enviando || !foto || !sel) return;
   enviando = true; $('#cBtn').disabled = true; $('#cBtn').textContent = 'Enviando…';
   const ahora = new Date();
-  const item = { client_id: uuid(), empleado_id: sel.id, nombre: sel.nombre, tipo, lat: gps && gps.lat, lng: gps && gps.lng, acc: gps && gps.acc, foto, hora: ahora.toISOString(), dia: fDia.format(ahora) };
+  const item = { client_id: uuid(), empleado_id: sel.id, nombre: sel.nombre, tipo, turno, lat: gps && gps.lat, lng: gps && gps.lng, acc: gps && gps.acc, foto, hora: ahora.toISOString(), dia: fDia.format(ahora) };
   let res = null, enCola = false;
   try {
     if (!navigator.onLine) throw new Error('offline');
@@ -421,7 +455,7 @@ $('#cBtn').onclick = async () => {
   }
   enviando = false;
   if (res && res.estado === 'duplicado') { mostrarDuplicado(res); return; }
-  sel.ultimo_tipo = tipo; sel.ultimo_hora = (res && res.fecha_hora) || item.hora; store.set('sisero_elementos', elementos);
+  sel.ultimo_tipo = tipo; sel.ultimo_hora = (res && res.fecha_hora) || item.hora; sel.ultimo_turno = (res && res.turno) || item.turno; store.set('sisero_elementos', elementos);
   mostrarListo(item, res, enCola);
   foto = null; pintarPendientes();
 };
@@ -438,7 +472,7 @@ function mostrarListo(item, res, enCola) {
   $('#dTitulo').textContent = `${item.tipo} registrada`;
   $('#dSub').textContent = enCola ? 'Sin señal: quedó guardada en este celular y se sube sola en cuanto haya conexión.' : 'Guardado y sincronizado con la base de datos.';
   const cubre = sel.base_id !== info.servicio_id;
-  const filas = [['Elemento', item.nombre], ['Servicio', info.servicio + (cubre ? ' (cubre)' : '')], ['Hora', fHora.format(new Date((res && res.fecha_hora) || item.hora))],
+  const filas = [['Elemento', item.nombre], ['Servicio', info.servicio + (cubre ? ' (cubre)' : '')], ['Turno', (res && res.turno) || item.turno || '—'], ['Hora', fHora.format(new Date((res && res.fecha_hora) || item.hora))],
     ['Ubicación', item.lat == null ? 'Sin GPS' : (res && res.fuera_zona ? 'Fuera de zona' : `GPS ±${Math.round(item.acc)} m`)]];
   const F = $('#dFacts'); F.innerHTML = '';
   filas.forEach(([k, val]) => { const d = document.createElement('div'); const s = document.createElement('span'); s.textContent = k; const b = document.createElement('b'); b.textContent = val; d.append(s, b); F.appendChild(d); });

@@ -1,5 +1,5 @@
 // Guarda la app en el celular para que abra aunque no haya señal.
-const CACHE = 'sisero-checador-v1';
+const CACHE = 'sisero-checador-v2';
 const ARCHIVOS = [
   './', './index.html', './manifest.webmanifest', '../config.js',
   '../assets/sisero-icono.png', '../assets/sisero-texto.png', '../assets/sisero-texto-blanco.png',

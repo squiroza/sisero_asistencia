@@ -1,6 +1,6 @@
 {
-  "name": "SISERO Checador",
-  "short_name": "Checador",
+  "name": "SISERO Asistencia",
+  "short_name": "Asistencia",
   "description": "Registro de asistencia de SISERO",
   "start_url": "./",
   "scope": "./",
