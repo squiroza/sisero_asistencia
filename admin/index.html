@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b2c55">
+<title>SISERO · Administrador</title>
+<link rel="icon" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,700;1,700;1,800&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  --navy:#0b2c55; --navy-ink:#071d3a; --blue:#2f6aa3; --blue-bg:#e3edf8; --gray:#3f444b; --gray-bg:#e6e8eb;
+  --bg:#f1f3f6; --surface:#ffffff; --ink:#141a22; --muted:#5b6470; --line:#d5dbe3; --line-2:#e4e8ee; --field:#c8d0da;
+  --ok:#1d7a4a; --ok-bg:#e1f2e8; --warn:#9a5b00; --warn-bg:#fdf0d6; --bad:#b3261e; --bad-bg:#fbe4e2;
+  --display:"Exo 2","Arial Narrow",system-ui,sans-serif; --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+[hidden]{display:none!important}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--navy)}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.shell{display:flex;flex-wrap:wrap;min-height:100vh}
+nav.side{flex:1 1 220px;max-width:250px;background:var(--surface);border-right:1px solid var(--line);padding:26px 16px;display:flex;flex-direction:column;gap:4px}
+nav.side .brand{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:0 10px 22px}
+nav.side .brand img{width:130px;height:auto}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+nav.side button.nav{all:unset;box-sizing:border-box;display:block;padding:11px 12px;border-radius:8px;color:#4a5563;font-weight:500;cursor:pointer}
+nav.side button.nav:hover{background:#eef2f7}
+nav.side button.nav[aria-current="page"]{background:var(--navy);color:#fff;font-weight:600}
+nav.side .who{margin-top:auto;padding:16px 12px 0;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+@media (max-width:760px){
+  nav.side{max-width:none;flex-basis:100%;flex-direction:row;flex-wrap:wrap;align-items:center;padding:12px 16px;border-right:0;border-bottom:1px solid var(--line)}
+  nav.side .brand{padding:0 12px 0 0;flex-direction:row;align-items:center}
+  nav.side .brand img{width:64px}
+  nav.side .brand .eyebrow{display:none}
+  nav.side .who{margin:0 0 0 auto;padding:0;flex-direction:row;align-items:center}
+  nav.side .who span{display:none}
+}
+main{flex:999 1 560px;min-width:0;padding:30px clamp(16px,3vw,40px) 60px;display:flex;flex-direction:column;gap:18px}
+h1{margin:0;font-family:var(--display);font-style:italic;font-weight:800;font-size:36px;line-height:1.05;letter-spacing:-.01em}
+.head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:14px}
+.sub{color:var(--muted)}
+.btn{height:44px;border-radius:10px;border:1px solid var(--field);background:var(--surface);padding:0 16px;font-weight:600;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.outline{border-color:var(--navy);color:var(--navy)}
+.btn.danger{color:var(--bad);border-color:#e7b6b2}
+.btn:disabled{opacity:.55;cursor:wait}
+.btn.sm{height:36px;padding:0 12px;font-size:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.filters{padding:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted);min-width:0}
+label.f input,label.f select,select.inline{height:44px;border-radius:10px;border:1px solid var(--field);background:#fff;padding:0 12px;font-size:16px;font-weight:500;color:var(--ink);width:100%}
+select.inline{height:38px;font-size:15px;width:auto}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--field);background:#fff;font-weight:600;color:var(--gray)}
+.chips button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{padding:12px 16px}
+.stat span{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stat b{display:block;font-family:var(--display);font-style:italic;font-weight:800;font-size:32px;font-variant-numeric:tabular-nums}
+.tablebox{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:600;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.mono{font-family:var(--mono);font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;white-space:nowrap;display:inline-block}
+.pill.Entrada{background:var(--blue-bg);color:var(--blue)} .pill.Salida{background:var(--gray-bg);color:var(--gray)}
+.pill.on{background:var(--ok-bg);color:var(--ok)} .pill.off{background:#ececec;color:var(--muted)}
+.tag{font-size:12.5px;font-weight:600}
+.tag.warn{color:var(--warn)} .tag.ok{color:var(--ok)} .tag.bad{color:var(--bad)} .tag.mut{color:var(--muted)}
+.thumb{width:44px;height:52px;border-radius:6px;background:#dfe7f1;display:grid;place-items:center;overflow:hidden;border:0;padding:0;color:var(--navy);font-size:10px;font-weight:600}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.av{width:40px;height:40px;border-radius:50%;background:#dfe7f1;color:var(--navy);display:grid;place-items:center;font-weight:700;font-size:14px;flex:none;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
+.person{display:flex;align-items:center;gap:12px}
+.empty{padding:34px 16px;text-align:center;color:var(--muted)}
+.msg{border-radius:10px;padding:10px 14px;font-size:15px}
+.msg.ok{background:var(--ok-bg);color:var(--ok)} .msg.bad{background:var(--bad-bg);color:var(--bad)} .msg.info{background:#e8edf4;color:var(--muted)} .msg.warn{background:var(--warn-bg);color:#7a4800}
+dialog{border:0;border-radius:14px;padding:0;width:min(720px,calc(100vw - 24px));max-height:calc(100vh - 24px);box-shadow:0 20px 60px rgba(7,29,58,.25)}
+dialog::backdrop{background:rgba(7,29,58,.45)}
+.dlg{padding:22px;display:flex;flex-direction:column;gap:16px}
+.dlg h2{margin:0;font-family:var(--display);font-style:italic;font-weight:800;font-size:24px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid2 .full{grid-column:1/-1}
+@media (max-width:560px){.grid2{grid-template-columns:1fr}}
+.fotoalta{width:150px;height:180px;border-radius:12px;border:2px dashed #9aa9bb;background:#f5f7fa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--navy);font-weight:600;cursor:pointer;overflow:hidden;text-align:center;font-size:14px}
+.fotoalta img{width:100%;height:100%;object-fit:cover}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:14px;background:#f5f7fa;border-radius:10px;padding:12px 14px}
+.switch input{width:22px;height:22px;accent-color:var(--ok)}
+.actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.login{max-width:400px;margin:8vh auto;padding:0 16px;display:flex;flex-direction:column;gap:16px}
+.login img{width:170px;align-self:center}
+.progress{font-size:14px;color:var(--muted)}
+.viewer{position:fixed;inset:0;background:rgba(0,0,0,.85);display:grid;place-items:center;z-index:50;padding:20px}
+.viewer img{max-height:88vh;border-radius:10px}
+.svcs{display:flex;flex-direction:column;gap:10px}
+.svc{padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.svc .meta{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);align-items:center}
+.svc .meta b{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<section id="vLogin" class="login" hidden>
+  <img src="../assets/sisero-logo.png" alt="SISERO">
+  <div style="text-align:center" class="eyebrow">Panel de administrador</div>
+  <form id="fLogin" class="card" style="padding:20px;display:flex;flex-direction:column;gap:14px" novalidate>
+    <label class="f">Correo<input id="lEmail" type="email" autocomplete="username" required></label>
+    <label class="f">Contraseña<input id="lPass" type="password" autocomplete="current-password" required></label>
+    <div id="lMsg" class="msg bad" hidden></div>
+    <button class="btn primary" id="lBtn" type="submit" style="justify-content:center;height:48px">Entrar</button>
+    <button class="btn" id="lAlta" type="button" style="justify-content:center;border:0;color:var(--blue)">Primera vez: crear mi acceso</button>
+  </form>
+</section>
+
+<section id="vNoAdmin" class="login" hidden>
+  <img src="../assets/sisero-logo.png" alt="SISERO">
+  <div class="msg warn">La cuenta <b id="naEmail"></b> no es administrador. Agrégala en la tabla <b>administradores</b> de Supabase o entra con otra cuenta.</div>
+  <button class="btn" id="naSalir" type="button" style="justify-content:center">Salir</button>
+</section>
+
+<div class="shell" id="vApp" hidden>
+  <nav class="side">
+    <div class="brand"><img src="../assets/sisero-logo.png" alt="SISERO"><span class="eyebrow">Control de asistencia</span></div>
+    <button class="nav" data-sec="asistencia" aria-current="page">Asistencia</button>
+    <button class="nav" data-sec="elementos">Elementos</button>
+    <button class="nav" data-sec="servicios">Servicios</button>
+    <button class="nav" data-sec="celulares">Celulares</button>
+    <div class="who"><span id="whoEmail"></span><button class="btn sm" id="salir" type="button">Salir</button></div>
+  </nav>
+
+  <main>
+    <!-- ================= ASISTENCIA ================= -->
+    <section id="secAsistencia" style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Asistencia</h1><div class="sub">Registros en vivo · elige el periodo y descarga el reporte</div></div>
+        <span class="tag mut" id="aVivo"></span>
+      </div>
+      <div class="card filters">
+        <div style="display:flex;flex-direction:column;gap:6px"><span class="eyebrow" style="font-size:13px;letter-spacing:0;text-transform:none">Periodo</span>
+          <div class="chips" id="aChips">
+            <button type="button" data-r="hoy" aria-pressed="true">Hoy</button>
+            <button type="button" data-r="semana" aria-pressed="false">Esta semana</button>
+            <button type="button" data-r="mes" aria-pressed="false">Este mes</button>
+            <button type="button" data-r="otro" aria-pressed="false">Otro rango</button>
+          </div>
+        </div>
+        <label class="f">Desde<input id="aDesde" type="date"></label>
+        <label class="f">Hasta<input id="aHasta" type="date"></label>
+        <label class="f" style="flex:1 1 180px">Servicio<select id="aServ"><option value="">Todos los servicios</option></select></label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn outline" id="aExcel" type="button">Excel con fotos</button>
+          <button class="btn primary" id="aPdf" type="button">Reporte PDF</button>
+        </div>
+      </div>
+      <div class="progress" id="aProg" hidden></div>
+      <div class="stats">
+        <div class="card stat"><span>Entradas</span><b id="sEnt" style="color:var(--blue)">0</b></div>
+        <div class="card stat"><span>Salidas</span><b id="sSal" style="color:var(--gray)">0</b></div>
+        <div class="card stat"><span>Coberturas</span><b id="sCub" style="color:var(--warn)">0</b></div>
+        <div class="card stat"><span>Fuera de zona</span><b id="sFue" style="color:var(--bad)">0</b></div>
+      </div>
+      <div class="card tablebox">
+        <table style="min-width:900px">
+          <thead><tr><th>Foto</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Elemento</th><th>Puesto</th><th>Servicio</th><th>Ubicación</th></tr></thead>
+          <tbody id="aBody"><tr><td colspan="8" class="empty">Cargando registros…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= ELEMENTOS ================= -->
+    <section id="secElementos" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Elementos</h1><div class="sub" id="eSub"></div></div>
+        <button class="btn primary" id="eNuevo" type="button">+ Dar de alta elemento</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">
+        <label class="f" style="flex:2 1 260px"><span class="sr" hidden>Buscar</span><input id="eQ" type="search" placeholder="Buscar por nombre o número"></label>
+        <label class="f" style="flex:1 1 200px"><select id="eServ"><option value="">Todos los servicios</option></select></label>
+        <label class="f" style="flex:0 1 170px"><select id="eEst"><option value="1">Solo activos</option><option value="">Activos y bajas</option></select></label>
+      </div>
+      <div class="card tablebox">
+        <table style="min-width:760px">
+          <thead><tr><th>Elemento</th><th>No.</th><th>Puesto</th><th>Servicio base</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="eBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= SERVICIOS ================= -->
+    <section id="secServicios" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Servicios</h1><div class="sub">Primero das de alta el servicio. Después le asignas elementos (servicio base) y un celular.</div></div>
+        <button class="btn primary" id="sNuevo" type="button">+ Dar de alta servicio</button>
+      </div>
+      <div class="svcs" id="sLista"></div>
+    </section>
+
+    <!-- ================= CELULARES ================= -->
+    <section id="secCelulares" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Celulares</h1><div class="sub" style="max-width:75ch">Cada celular entra una sola vez con su correo. El servicio que le asignes aquí es el que queda en todos los registros hechos desde ese celular.</div></div>
+      </div>
+      <form class="card filters" id="cForm" novalidate>
+        <label class="f" style="flex:2 1 240px">Correo del celular<input id="cEmail" type="email" placeholder="correo@gmail.com"></label>
+        <label class="f" style="flex:1 1 200px">Servicio<select id="cServ"></select></label>
+        <label class="f" style="flex:1 1 180px">Descripción (opcional)<input id="cDesc" type="text" placeholder="Ej. Samsung A15 caseta"></label>
+        <button class="btn primary" type="submit">Agregar celular</button>
+      </form>
+      <div id="cMsg" class="msg" hidden></div>
+      <div class="card tablebox">
+        <table style="min-width:760px">
+          <thead><tr><th>Celular (correo)</th><th>Servicio asignado</th><th>Descripción</th><th>Último registro</th><th>Activo</th><th></th></tr></thead>
+          <tbody id="cBody"></tbody>
+        </table>
+      </div>
+      <div class="msg info">Para que un celular nuevo funcione: 1) agrégalo aquí con su correo; 2) en el celular abre el checador, toca <b>“Primera vez en este celular: crear acceso”</b> y escribe ese mismo correo y una contraseña.</div>
+    </section>
+  </main>
+</div>
+
+<!-- Diálogo: elemento -->
+<dialog id="dElem">
+  <form class="dlg" id="fElem" method="dialog" novalidate>
+    <h2 id="feTitulo">Dar de alta elemento</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:20px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label class="fotoalta" id="feFotoBox" for="feFoto">Subir o tomar foto</label>
+        <input id="feFoto" type="file" accept="image/*" hidden>
+        <span class="sub" style="font-size:13px;max-width:150px">Se muestra al guardia al checar.</span>
+      </div>
+      <div class="grid2" style="flex:1 1 300px">
+        <label class="f full">Nombre completo<input id="feNombre" type="text" required></label>
+        <label class="f">No. de empleado<input id="feNumero" type="text"></label>
+        <label class="f">Teléfono<input id="feTel" type="tel"></label>
+        <label class="f">Puesto<input id="fePuesto" type="text" list="dlPuestos" required></label>
+        <label class="f">Servicio base<select id="feServ"></select></label>
+        <label class="switch full"><span><b style="display:block">Activo</b><span class="sub" style="font-size:14px">Si lo das de baja, deja de aparecer en el checador. Su historial se conserva.</span></span><input id="feActivo" type="checkbox" checked></label>
+      </div>
+    </div>
+    <div id="feMsg" class="msg bad" hidden></div>
+    <div class="actions"><button class="btn" type="button" id="feCancel">Cancelar</button><button class="btn primary" type="submit" id="feGuardar">Guardar elemento</button></div>
+  </form>
+</dialog>
+<datalist id="dlPuestos"><option value="Guardia"><option value="Guardia armado"><option value="Jefe de turno"><option value="Supervisor"><option value="Escolta"><option value="Monitorista"></datalist>
+
+<!-- Diálogo: servicio -->
+<dialog id="dServ">
+  <form class="dlg" id="fServ" method="dialog" novalidate>
+    <h2 id="fsTitulo">Dar de alta servicio</h2>
+    <div class="grid2">
+      <label class="f full">Nombre del servicio<input id="fsNombre" type="text" required placeholder="Ej. Cemex Minas"></label>
+      <label class="f">Cliente<input id="fsCliente" type="text"></label>
+      <label class="f">Dirección<input id="fsDir" type="text"></label>
+      <label class="f full">Ubicación GPS (latitud, longitud)<input id="fsCoord" type="text" placeholder="19.4326, -99.1332" inputmode="decimal"></label>
+      <div class="full" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn outline sm" type="button" id="fsAqui">Usar mi ubicación actual</button>
+        <a id="fsMapa" href="#" target="_blank" rel="noopener" hidden>Ver en Google Maps</a>
+        <span class="sub" style="font-size:13px">O pega las coordenadas desde Google Maps (clic derecho sobre el punto).</span>
+      </div>
+      <label class="f">Radio permitido (metros)<input id="fsRadio" type="number" min="20" max="5000" value="150"></label>
+      <label class="f">Elementos por turno<input id="fsTurno" type="number" min="0" value="1"></label>
+      <label class="switch full"><span><b style="display:block">Activo</b><span class="sub" style="font-size:14px">Un servicio inactivo no aparece para asignar.</span></span><input id="fsActivo" type="checkbox" checked></label>
+    </div>
+    <div id="fsMsg" class="msg bad" hidden></div>
+    <div class="actions"><button class="btn" type="button" id="fsCancel">Cancelar</button><button class="btn primary" type="submit">Guardar servicio</button></div>
+  </form>
+</dialog>
+
+<div class="viewer" id="viewer" hidden><img id="viewerImg" alt="Foto"></div>
+
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+(() => {
+const CFG = window.SISERO_CONFIG || {};
+const TZ = CFG.ZONA_HORARIA || 'America/Mexico_City';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+if (!CFG.SUPABASE_URL || CFG.SUPABASE_URL.includes('TU-PROYECTO')) { document.body.innerHTML = '<div style="padding:40px;font-family:system-ui"><h2>Falta configurar</h2><p>Escribe los datos de Supabase en el archivo <b>config.js</b>.</p></div>'; return; }
+const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+
+/* ---------- utilidades ---------- */
+const fHora = new Intl.DateTimeFormat('es-MX', { timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+const fHM = new Intl.DateTimeFormat('es-MX', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+const fFecha = new Intl.DateTimeFormat('es-MX', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' });
+const fDiaISO = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+const fGen = new Intl.DateTimeFormat('es-MX', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+const hoyISO = () => fDiaISO.format(new Date());
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const ini = n => (n || '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const fechaCorta = iso => iso.split('-').reverse().join('/');
+const durTxt = m => m == null ? '—' : `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+const distTxt = d => d == null ? '' : d >= 1000 ? (d / 1000).toFixed(1) + ' km' : d + ' m';
+// Desfase horario de la zona para una fecha (ej. "-06:00")
+function offset(isoDay) {
+  try {
+    const p = new Intl.DateTimeFormat('en-US', { timeZone: TZ, timeZoneName: 'longOffset' }).formatToParts(new Date(isoDay + 'T12:00:00Z')).find(x => x.type === 'timeZoneName').value;
+    const m = p.match(/GMT([+-]\d{2}):?(\d{2})?/); return m ? `${m[1]}:${m[2] || '00'}` : '+00:00';
+  } catch (e) { return '-06:00'; }
+}
+const inicioDia = d => `${d}T00:00:00${offset(d)}`;
+function sumaDias(iso, n) { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function descargar(blob, nombre) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nombre; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+const archivo = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_');
+
+/* ---------- fotos ---------- */
+const urlCache = new Map();
+async function urlsFirmadas(paths) {
+  const faltan = [...new Set(paths.filter(p => p && !urlCache.has(p)))];
+  for (let i = 0; i < faltan.length; i += 100) {
+    const { data } = await sb.storage.from('fotos').createSignedUrls(faltan.slice(i, i + 100), 3600);
+    (data || []).forEach(x => { if (x.signedUrl) urlCache.set(x.path, x.signedUrl); });
+  }
+  return p => urlCache.get(p);
+}
+function verFoto(url) { $('#viewerImg').src = url; $('#viewer').hidden = false; }
+$('#viewer').onclick = () => { $('#viewer').hidden = true; };
+async function aDataUrl(url) {
+  const r = await fetch(url); if (!r.ok) throw new Error('foto'); const b = await r.blob();
+  return await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(b); });
+}
+function medidas(src) { return new Promise(ok => { const i = new Image(); i.onload = () => ok({ w: i.naturalWidth, h: i.naturalHeight }); i.onerror = () => ok({ w: 3, h: 4 }); i.src = src; }); }
+async function bajarFotos(paths, progreso) {
+  const get = await urlsFirmadas(paths);
+  const unicos = [...new Set(paths.filter(Boolean))], out = new Map(); let hechos = 0;
+  const cola = unicos.slice();
+  async function trabajador() {
+    while (cola.length) {
+      const p = cola.shift();
+      try { const d = await aDataUrl(get(p)); out.set(p, { d, ...(await medidas(d)) }); } catch (e) {}
+      hechos++; progreso && progreso(hechos, unicos.length);
+    }
+  }
+  await Promise.all(Array.from({ length: 6 }, trabajador));
+  return out;
+}
+async function reducir(file, max, q) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, err) => { const i = new Image(); i.onload = () => ok(i); i.onerror = err; i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(ok => c.toBlob(ok, 'image/jpeg', q));
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ---------- estado ---------- */
+let servicios = [], empleados = [], dispositivos = [], registros = [], canal = null;
+
+async function cargarCatalogos() {
+  const [s, e, d] = await Promise.all([
+    sb.from('servicios').select('*').order('nombre'),
+    sb.from('empleados').select('*').order('nombre'),
+    sb.from('dispositivos').select('*').order('email')
+  ]);
+  servicios = s.data || []; empleados = e.data || []; dispositivos = d.data || [];
+  const opts = (todos) => (todos ? '<option value="">Todos los servicios</option>' : '') + servicios.map(x => `<option value="${x.id}">${esc(x.nombre)}${x.activo ? '' : ' (inactivo)'}</option>`).join('');
+  const keep = (sel, html) => { const v = sel.value; sel.innerHTML = html; if ([...sel.options].some(o => o.value === v)) sel.value = v; };
+  keep($('#aServ'), opts(true)); keep($('#eServ'), opts(true));
+  keep($('#cServ'), servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join(''));
+  keep($('#feServ'), '<option value="">Sin asignar</option>' + servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join(''));
+}
+const nombreServ = id => (servicios.find(s => s.id === id) || {}).nombre || '';
+
+/* ---------- navegación ---------- */
+const secs = { asistencia: '#secAsistencia', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares' };
+function ir(sec) {
+  Object.entries(secs).forEach(([k, s]) => { $(s).hidden = k !== sec; });
+  $$('nav.side button.nav').forEach(b => b.setAttribute('aria-current', b.dataset.sec === sec ? 'page' : 'false'));
+  if (sec === 'elementos') pintarElementos();
+  if (sec === 'servicios') pintarServicios();
+  if (sec === 'celulares') pintarCelulares();
+  try { history.replaceState(null, '', '#' + sec); } catch (e) {}
+}
+$$('nav.side button.nav').forEach(b => b.onclick = () => ir(b.dataset.sec));
+
+/* =================== ASISTENCIA =================== */
+let rango = 'hoy';
+function aplicarRango(r) {
+  rango = r; $$('#aChips button').forEach(b => b.setAttribute('aria-pressed', b.dataset.r === r));
+  const h = hoyISO();
+  if (r === 'hoy') { $('#aDesde').value = h; $('#aHasta').value = h; }
+  if (r === 'semana') { const d = new Date(h + 'T12:00:00Z'); const dow = (d.getUTCDay() + 6) % 7; $('#aDesde').value = sumaDias(h, -dow); $('#aHasta').value = h; }
+  if (r === 'mes') { $('#aDesde').value = h.slice(0, 8) + '01'; $('#aHasta').value = h; }
+  if (r !== 'otro') cargarRegistros();
+}
+$$('#aChips button').forEach(b => b.onclick = () => aplicarRango(b.dataset.r));
+['#aDesde', '#aHasta'].forEach(s => $(s).onchange = () => { $$('#aChips button').forEach(b => b.setAttribute('aria-pressed', b.dataset.r === 'otro')); rango = 'otro'; cargarRegistros(); });
+$('#aServ').onchange = () => cargarRegistros();
+
+function periodo() {
+  let d = $('#aDesde').value || hoyISO(), h = $('#aHasta').value || d;
+  if (h < d) [d, h] = [h, d];
+  return { desde: d, hasta: h, servicio: $('#aServ').value || null };
+}
+let cargando = false, otraVez = false;
+async function cargarRegistros() {
+  if (cargando) { otraVez = true; return; }
+  cargando = true;
+  try {
+    const p = periodo();
+    let q = sb.from('v_registros').select('*').gte('fecha_hora', inicioDia(p.desde)).lt('fecha_hora', inicioDia(sumaDias(p.hasta, 1))).order('fecha_hora', { ascending: false }).limit(3000);
+    if (p.servicio) q = q.eq('servicio_id', p.servicio);
+    const { data, error } = await q;
+    if (error) throw error;
+    registros = data || [];
+    pintarRegistros();
+    $('#aVivo').textContent = 'Actualizado ' + fHM.format(new Date());
+  } catch (e) {
+    $('#aBody').innerHTML = `<tr><td colspan="8" class="empty">No se pudieron cargar los registros: ${esc(e.message)}</td></tr>`;
+  } finally { cargando = false; if (otraVez) { otraVez = false; cargarRegistros(); } }
+}
+async function pintarRegistros() {
+  $('#sEnt').textContent = registros.filter(r => r.tipo === 'Entrada').length;
+  $('#sSal').textContent = registros.filter(r => r.tipo === 'Salida').length;
+  $('#sCub').textContent = registros.filter(r => r.cubre).length;
+  $('#sFue').textContent = registros.filter(r => r.fuera_zona).length;
+  const B = $('#aBody');
+  if (!registros.length) { B.innerHTML = '<tr><td colspan="8" class="empty">No hay registros en este periodo. En cuanto alguien cheque, aparece aquí.</td></tr>'; return; }
+  const vis = registros.slice(0, 500);
+  B.innerHTML = vis.map((r, i) => {
+    const d = new Date(r.fecha_hora);
+    let ub = '<span class="tag mut">Sin GPS</span>';
+    if (r.lat != null) {
+      const txt = r.fuera_zona ? `Fuera de zona · ${distTxt(r.distancia_m)}` : r.distancia_m != null ? `En servicio · ${distTxt(r.distancia_m)}` : 'Con GPS';
+      ub = `<a class="tag ${r.fuera_zona ? 'warn' : 'ok'}" href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" rel="noopener">${txt}</a>`;
+    }
+    return `<tr>
+      <td><button class="thumb" type="button" data-i="${i}">${r.foto_path ? '…' : '—'}</button></td>
+      <td class="mono">${fFecha.format(d)}</td>
+      <td class="mono">${fHora.format(d)}${r.diferido ? '<div class="tag warn" style="font-family:var(--body)">Sin señal</div>' : ''}</td>
+      <td><span class="pill ${r.tipo}">${r.tipo}</span></td>
+      <td><b style="font-weight:600">${esc(r.empleado)}</b>${r.cubre ? `<div class="tag warn">Cubre · base ${esc(r.servicio_base || 'sin asignar')}</div>` : ''}</td>
+      <td>${esc(r.puesto)}</td>
+      <td>${esc(r.servicio)}</td>
+      <td>${ub}</td></tr>`;
+  }).join('') + (registros.length > 500 ? `<tr><td colspan="8" class="empty">Se muestran los 500 más recientes de ${registros.length}. Los reportes incluyen todos.</td></tr>` : '');
+  const get = await urlsFirmadas(vis.map(r => r.foto_path));
+  $$('#aBody .thumb').forEach(b => {
+    const r = vis[+b.dataset.i]; const u = r && get(r.foto_path);
+    if (u) { b.innerHTML = `<img src="${u}" alt="Foto de ${esc(r.empleado)}" loading="lazy">`; b.onclick = () => verFoto(u); }
+  });
+}
+function escucharEnVivo() {
+  if (canal) sb.removeChannel(canal);
+  let t = null;
+  canal = sb.channel('registros-vivo')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => { clearTimeout(t); t = setTimeout(cargarRegistros, 800); })
+    .subscribe();
+  setInterval(cargarRegistros, 60000);   // respaldo por si se corta la conexión en vivo
+}
+
+/* ---------- reportes por turno ---------- */
+function progreso(t) { const p = $('#aProg'); p.hidden = !t; p.textContent = t || ''; }
+async function datosTurnos() {
+  const p = periodo();
+  progreso('Armando turnos…');
+  const { data, error } = await sb.rpc('reporte_turnos', { p_desde: p.desde, p_hasta: p.hasta, p_servicio: p.servicio });
+  if (error) throw error;
+  const turnos = data || [];
+  const fotos = await bajarFotos(turnos.flatMap(t => [t.entrada_foto, t.salida_foto]), (h, n) => progreso(`Descargando fotos ${h} de ${n}…`));
+  return { p, turnos, fotos };
+}
+function obsTurno(t) {
+  const o = [];
+  if (t.cubre) o.push('Cubre (base ' + (t.servicio_base || 'sin asignar') + ')');
+  if (!t.salida) o.push('Sin salida'); if (!t.entrada) o.push('Sin entrada');
+  if (t.entrada_fuera) o.push('Entrada fuera de zona (' + distTxt(t.entrada_dist) + ')');
+  if (t.salida_fuera) o.push('Salida fuera de zona (' + distTxt(t.salida_dist) + ')');
+  return o.join(' · ');
+}
+function horaTurno(ts, ref) { if (!ts) return ''; const d = new Date(ts); const dia = fDiaISO.format(d); return fHM.format(d) + (ref && dia !== ref ? ` (${fechaCorta(dia).slice(0, 5)})` : ''); }
+const etiquetaServ = p => p.servicio ? nombreServ(p.servicio) : 'Todos los servicios';
+
+$('#aExcel').onclick = async () => {
+  const btn = $('#aExcel'); btn.disabled = true;
+  try {
+    const { p, turnos, fotos } = await datosTurnos();
+    if (!turnos.length) { progreso('No hay turnos en este periodo.'); return; }
+    progreso('Generando Excel…');
+    const wb = new ExcelJS.Workbook(); wb.creator = 'SISERO';
+    const ws = wb.addWorksheet('Turnos', { views: [{ state: 'frozen', ySplit: 4 }] });
+    ws.mergeCells('A1:L1'); ws.getCell('A1').value = 'SISERO · Reporte de asistencia por turno';
+    ws.getCell('A1').font = { bold: true, size: 15, color: { argb: 'FF0B2C55' } };
+    ws.mergeCells('A2:L2'); ws.getCell('A2').value = `${etiquetaServ(p)} · del ${fechaCorta(p.desde)} al ${fechaCorta(p.hasta)} · generado ${fGen.format(new Date())}`;
+    ws.getCell('A2').font = { color: { argb: 'FF5B6470' } };
+    const cols = [['Elemento', 28], ['No.', 9], ['Puesto', 18], ['Servicio', 20], ['Servicio base', 20], ['Fecha', 12], ['Entrada', 12], ['Foto entrada', 13], ['Salida', 14], ['Foto salida', 13], ['Horas', 9], ['Observaciones', 40]];
+    ws.columns = cols.map(([h, w]) => ({ width: w }));
+    const head = ws.getRow(4); head.values = cols.map(c => c[0]); head.height = 22;
+    head.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0B2C55' } }; c.alignment = { vertical: 'middle' }; });
+    const FOTO = 78;
+    turnos.forEach((t, i) => {
+      const row = ws.getRow(5 + i);
+      row.values = [t.empleado, t.numero || '', t.puesto, t.servicio, t.servicio_base || '', fechaCorta(t.fecha), horaTurno(t.entrada, t.fecha), '', horaTurno(t.salida, t.fecha) || 'Sin salida', '', durTxt(t.minutos), obsTurno(t)];
+      row.height = FOTO * 0.78; row.alignment = { vertical: 'middle', wrapText: true };
+      if (!t.salida) row.getCell(9).font = { color: { argb: 'FFB3261E' }, bold: true };
+      if (!t.entrada) row.getCell(7).value = 'Sin entrada';
+      [[t.entrada_foto, 7], [t.salida_foto, 9]].forEach(([path, col]) => {
+        const f = fotos.get(path); if (!f) return;
+        const k = (FOTO - 6) / Math.max(f.w, f.h);
+        const id = wb.addImage({ base64: f.d, extension: 'jpeg' });
+        ws.addImage(id, { tl: { col: col + 0.08, row: 4 + i + 0.06 }, ext: { width: Math.round(f.w * k), height: Math.round(f.h * k) }, editAs: 'oneCell' });
+      });
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    descargar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `SISERO_asistencia_${archivo(etiquetaServ(p))}_${p.desde}_${p.hasta}.xlsx`);
+    progreso('');
+  } catch (e) { progreso('No se pudo generar el Excel: ' + e.message); }
+  finally { btn.disabled = false; }
+};
+
+let logos = null;
+async function cargarLogos() { if (logos) return logos; const [ic, tx] = await Promise.all([aDataUrl('../assets/sisero-icono.png'), aDataUrl('../assets/sisero-texto.png')]); logos = { ic, tx, icm: await medidas(ic), txm: await medidas(tx) }; return logos; }
+
+$('#aPdf').onclick = async () => {
+  const btn = $('#aPdf'); btn.disabled = true;
+  try {
+    const [{ p, turnos, fotos }, L] = await Promise.all([datosTurnos(), cargarLogos()]);
+    if (!turnos.length) { progreso('No hay turnos en este periodo.'); return; }
+    progreso('Generando PDF…');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
+    const navy = [11, 44, 85], muted = [91, 100, 112];
+    // Encabezado
+    const ih = 15, iw = ih * L.icm.w / L.icm.h; doc.addImage(L.ic, 'PNG', M, M, iw, ih);
+    const th = 5.2, tw = th * L.txm.w / L.txm.h; doc.addImage(L.tx, 'PNG', M + iw + 4, M + 2.5, tw, th);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+    doc.text('SEGURIDAD PRIVADA · CONTROL DE ASISTENCIA', M + iw + 4, M + 12.5);
+    doc.text(`Generado: ${fGen.format(new Date())}`, W - M, M + 5, { align: 'right' });
+    doc.setDrawColor(...navy); doc.setLineWidth(0.9); doc.line(M, M + 19, W - M, M + 19);
+    doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(17); doc.setTextColor(...navy);
+    doc.text('Reporte de asistencia', M, M + 28);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 26, 34);
+    doc.text(`${etiquetaServ(p)} · del ${fechaCorta(p.desde)} al ${fechaCorta(p.hasta)}`, M, M + 34);
+    const svc = p.servicio && servicios.find(s => s.id === p.servicio);
+    if (svc && svc.cliente) { doc.setTextColor(...muted); doc.text('Cliente: ' + svc.cliente, W - M, M + 34, { align: 'right' }); }
+    // Resumen
+    const totMin = turnos.reduce((a, t) => a + (t.minutos || 0), 0);
+    const res = [['TURNOS', String(turnos.length), navy], ['HORAS TOTALES', `${Math.round(totMin / 60)} h`, [47, 106, 163]], ['COBERTURAS', String(turnos.filter(t => t.cubre).length), [154, 91, 0]], ['SIN SALIDA', String(turnos.filter(t => !t.salida).length), [179, 38, 30]]];
+    const bw = (W - 2 * M - 9) / 4, by = M + 39;
+    res.forEach(([k, v, c], i) => {
+      const x = M + i * (bw + 3); doc.setDrawColor(213, 219, 227); doc.setLineWidth(0.3); doc.roundedRect(x, by, bw, 15, 1.5, 1.5);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8); doc.setTextColor(...muted); doc.text(k, x + 3, by + 5);
+      doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(14); doc.setTextColor(...c); doc.text(v, x + 3, by + 12.2);
+    });
+    // Tabla
+    const deFila = new Map();
+    const body = turnos.map(t => { const fila = [
+      t.empleado + '\n' + t.puesto + (t.cubre ? '\nCubre · base ' + (t.servicio_base || 'sin asignar') : '') + (p.servicio ? '' : '\n' + t.servicio),
+      fechaCorta(t.fecha), '', t.entrada ? horaTurno(t.entrada, t.fecha) : 'Sin entrada', '', t.salida ? horaTurno(t.salida, t.fecha) : 'Sin salida', durTxt(t.minutos)
+    ]; deFila.set(fila, t); return fila; });
+    doc.autoTable({
+      startY: by + 20, margin: { left: M, right: M, top: 14, bottom: 14 },
+      head: [['Elemento', 'Fecha', 'Foto', 'Entrada', 'Foto', 'Salida', 'Horas']], body,
+      theme: 'grid', rowPageBreak: 'avoid',
+      styles: { font: 'helvetica', fontSize: 8.6, cellPadding: 1.8, valign: 'middle', lineColor: [213, 219, 227], lineWidth: 0.2, textColor: [20, 26, 34] },
+      headStyles: { fillColor: navy, textColor: 255, fontStyle: 'bold' },
+      bodyStyles: { minCellHeight: 24 },
+      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 20 }, 2: { cellWidth: 20 }, 3: { cellWidth: 22, fontStyle: 'bold', textColor: [47, 106, 163] }, 4: { cellWidth: 20 }, 5: { cellWidth: 24, fontStyle: 'bold', textColor: [63, 68, 75] }, 6: { cellWidth: 15, halign: 'right', fontStyle: 'bold' } },
+      didParseCell: d => {
+        if (d.section === 'head' && (d.column.index === 3)) d.cell.styles.fillColor = [47, 106, 163];
+        if (d.section === 'head' && (d.column.index === 5)) d.cell.styles.fillColor = [63, 68, 75];
+        if (d.section === 'body') {
+          const t = deFila.get(d.row.raw); if (!t) return;
+          if ((d.column.index === 5 && !t.salida) || (d.column.index === 3 && !t.entrada)) d.cell.styles.textColor = [179, 38, 30];
+        }
+      },
+      didDrawCell: d => {
+        if (d.section !== 'body' || (d.column.index !== 2 && d.column.index !== 4)) return;
+        const t = deFila.get(d.row.raw); if (!t) return; const f = fotos.get(d.column.index === 2 ? t.entrada_foto : t.salida_foto);
+        if (!f) return;
+        const maxW = d.cell.width - 3, maxH = d.cell.height - 3, k = Math.min(maxW / f.w, maxH / f.h);
+        const w = f.w * k, h = f.h * k;
+        doc.addImage(f.d, 'JPEG', d.cell.x + (d.cell.width - w) / 2, d.cell.y + (d.cell.height - h) / 2, w, h);
+      }
+    });
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) {
+      doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+      doc.setDrawColor(213, 219, 227); doc.setLineWidth(0.2); doc.line(M, H - 10, W - M, H - 10);
+      doc.text('SISERO · Reporte generado desde el checador. Las fotos y ubicaciones corresponden al momento de cada registro.', M, H - 6);
+      doc.text(`Página ${i} de ${n}`, W - M, H - 6, { align: 'right' });
+    }
+    doc.save(`SISERO_reporte_${archivo(etiquetaServ(p))}_${p.desde}_${p.hasta}.pdf`);
+    progreso('');
+  } catch (e) { progreso('No se pudo generar el PDF: ' + e.message); }
+  finally { btn.disabled = false; }
+};
+
+/* =================== ELEMENTOS =================== */
+['#eQ', '#eServ', '#eEst'].forEach(s => $(s).addEventListener('input', pintarElementos));
+async function pintarElementos() {
+  const q = norm($('#eQ').value.trim()), sv = $('#eServ').value, solo = $('#eEst').value === '1';
+  const act = empleados.filter(e => e.activo).length;
+  $('#eSub').textContent = `${act} activos en ${new Set(empleados.filter(e => e.activo && e.servicio_base_id).map(e => e.servicio_base_id)).size} servicios · solo los activos aparecen en el checador`;
+  const lista = empleados.filter(e => (!solo || e.activo) && (!sv || e.servicio_base_id === sv) && (!q || norm(e.nombre).includes(q) || (e.numero || '').includes(q)));
+  const B = $('#eBody');
+  if (!lista.length) { B.innerHTML = `<tr><td colspan="7" class="empty">${empleados.length ? 'Nadie coincide con la búsqueda.' : 'Todavía no hay elementos. Da de alta el primero con el botón de arriba.'}</td></tr>`; return; }
+  B.innerHTML = lista.map(e => `<tr>
+    <td><div class="person"><div class="av" data-foto="${esc(e.foto_path || '')}">${esc(ini(e.nombre))}</div><b style="font-weight:600">${esc(e.nombre)}</b></div></td>
+    <td class="mono">${esc(e.numero || '')}</td><td>${esc(e.puesto)}</td><td>${esc(nombreServ(e.servicio_base_id) || 'Sin asignar')}</td>
+    <td class="mono">${esc(e.telefono || '')}</td>
+    <td><span class="pill ${e.activo ? 'on' : 'off'}">${e.activo ? 'Activo' : 'Baja'}</span></td>
+    <td style="text-align:right"><button class="btn sm" type="button" data-id="${e.id}">Editar</button></td></tr>`).join('');
+  $$('#eBody button[data-id]').forEach(b => b.onclick = () => abrirElemento(empleados.find(x => x.id === b.dataset.id)));
+  const get = await urlsFirmadas(lista.map(e => e.foto_path));
+  $$('#eBody .av[data-foto]').forEach(a => { const u = a.dataset.foto && get(a.dataset.foto); if (u) a.innerHTML = `<img src="${u}" alt="">`; });
+}
+let editE = null, fotoE = null;
+function abrirElemento(e) {
+  editE = e || null; fotoE = null;
+  $('#feTitulo').textContent = e ? 'Editar elemento' : 'Dar de alta elemento';
+  $('#feNombre').value = e ? e.nombre : ''; $('#feNumero').value = e ? e.numero || '' : ''; $('#feTel').value = e ? e.telefono || '' : '';
+  $('#fePuesto').value = e ? e.puesto : ''; $('#feServ').value = e ? e.servicio_base_id || '' : ($('#eServ').value || ''); $('#feActivo').checked = e ? e.activo : true;
+  $('#feMsg').hidden = true;
+  const box = $('#feFotoBox'); box.textContent = 'Subir o tomar foto';
+  if (e && e.foto_path) urlsFirmadas([e.foto_path]).then(get => { const u = get(e.foto_path); if (u && editE === e && !fotoE) box.innerHTML = `<img src="${u}" alt="Foto de alta">`; });
+  $('#dElem').showModal(); $('#feNombre').focus();
+}
+$('#eNuevo').onclick = () => abrirElemento(null);
+$('#feCancel').onclick = () => $('#dElem').close();
+$('#feFoto').onchange = async ev => {
+  const f = ev.target.files && ev.target.files[0]; ev.target.value = ''; if (!f) return;
+  fotoE = await reducir(f, 600, 0.75); $('#feFotoBox').innerHTML = `<img src="${URL.createObjectURL(fotoE)}" alt="Foto nueva">`;
+};
+$('#fElem').onsubmit = async ev => {
+  ev.preventDefault();
+  const msg = t => { $('#feMsg').hidden = false; $('#feMsg').textContent = t; };
+  const fila = { nombre: $('#feNombre').value.trim().replace(/\s+/g, ' '), numero: $('#feNumero').value.trim() || null, telefono: $('#feTel').value.trim() || null, puesto: $('#fePuesto').value.trim(), servicio_base_id: $('#feServ').value || null, activo: $('#feActivo').checked };
+  if (!fila.nombre || !fila.puesto) { msg('Escribe el nombre completo y el puesto.'); return; }
+  const btn = $('#feGuardar'); btn.disabled = true;
+  try {
+    let id = editE && editE.id;
+    if (id) { const { error } = await sb.from('empleados').update(fila).eq('id', id); if (error) throw error; }
+    else { const { data, error } = await sb.from('empleados').insert(fila).select('id').single(); if (error) throw error; id = data.id; }
+    if (fotoE) {
+      const path = `altas/${id}.jpg`;
+      const { error } = await sb.storage.from('fotos').upload(path, fotoE, { contentType: 'image/jpeg', upsert: true });
+      if (error) throw error;
+      await sb.from('empleados').update({ foto_path: path }).eq('id', id); urlCache.delete(path);
+    }
+    $('#dElem').close(); await cargarCatalogos(); pintarElementos();
+  } catch (e) { msg(/duplicate|unique/i.test(e.message) ? 'Ese número de empleado ya está registrado.' : 'No se pudo guardar: ' + e.message); }
+  finally { btn.disabled = false; }
+};
+
+/* =================== SERVICIOS =================== */
+function pintarServicios() {
+  const L = $('#sLista');
+  if (!servicios.length) { L.innerHTML = '<div class="card empty">Todavía no hay servicios. Da de alta el primero con el botón de arriba.</div>'; return; }
+  L.innerHTML = servicios.map(s => {
+    const ne = empleados.filter(e => e.activo && e.servicio_base_id === s.id).length;
+    const nc = dispositivos.filter(d => d.activo && d.servicio_id === s.id).length;
+    const gps = s.lat != null ? `<span class="tag ok">GPS listo · ${s.radio_m} m</span>` : '<span class="tag warn">Falta ubicación</span>';
+    return `<div class="card svc"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:17px">${esc(s.nombre)}${s.activo ? '' : ' <span class="pill off">Inactivo</span>'}</b><span class="sub" style="font-size:14px">${esc(s.cliente ? 'Cliente: ' + s.cliente : 'Sin cliente')} · ${s.elementos_turno} por turno${s.direccion ? ' · ' + esc(s.direccion) : ''}</span></div>
+      <div class="meta"><span><b>${ne}</b> elementos</span>${nc ? `<span><b>${nc}</b> celular${nc > 1 ? 'es' : ''}</span>` : '<span class="tag warn">Sin celular</span>'}${gps}<button class="btn sm" type="button" data-id="${s.id}">Editar</button></div></div>`;
+  }).join('');
+  $$('#sLista button[data-id]').forEach(b => b.onclick = () => abrirServicio(servicios.find(x => x.id === b.dataset.id)));
+}
+let editS = null;
+function coordTxt(s) { return s && s.lat != null ? `${s.lat}, ${s.lng}` : ''; }
+function parseCoord(t) { const m = (t || '').match(/(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)/); if (!m) return null; const lat = +m[1], lng = +m[2]; return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null; }
+function mapaLink() { const c = parseCoord($('#fsCoord').value); $('#fsMapa').hidden = !c; if (c) $('#fsMapa').href = `https://www.google.com/maps?q=${c.lat},${c.lng}`; }
+$('#fsCoord').addEventListener('input', mapaLink);
+function abrirServicio(s) {
+  editS = s || null;
+  $('#fsTitulo').textContent = s ? 'Editar servicio' : 'Dar de alta servicio';
+  $('#fsNombre').value = s ? s.nombre : ''; $('#fsCliente').value = s ? s.cliente || '' : ''; $('#fsDir').value = s ? s.direccion || '' : '';
+  $('#fsCoord').value = coordTxt(s); $('#fsRadio').value = s ? s.radio_m : 150; $('#fsTurno').value = s ? s.elementos_turno : 1; $('#fsActivo').checked = s ? s.activo : true;
+  $('#fsMsg').hidden = true; mapaLink(); $('#dServ').showModal(); $('#fsNombre').focus();
+}
+$('#sNuevo').onclick = () => abrirServicio(null);
+$('#fsCancel').onclick = () => $('#dServ').close();
+$('#fsAqui').onclick = () => {
+  const m = $('#fsMsg');
+  if (!navigator.geolocation) { m.hidden = false; m.textContent = 'Este navegador no da la ubicación.'; return; }
+  $('#fsAqui').disabled = true;
+  navigator.geolocation.getCurrentPosition(p => { $('#fsCoord').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`; mapaLink(); $('#fsAqui').disabled = false; },
+    () => { m.hidden = false; m.textContent = 'No se pudo obtener tu ubicación. Revisa el permiso del navegador o pega las coordenadas.'; $('#fsAqui').disabled = false; },
+    { enableHighAccuracy: true, timeout: 15000 });
+};
+$('#fServ').onsubmit = async ev => {
+  ev.preventDefault();
+  const msg = t => { $('#fsMsg').hidden = false; $('#fsMsg').textContent = t; };
+  const nombre = $('#fsNombre').value.trim(); if (!nombre) { msg('Escribe el nombre del servicio.'); return; }
+  const ct = $('#fsCoord').value.trim(), c = parseCoord(ct);
+  if (ct && !c) { msg('Las coordenadas no son válidas. Ejemplo: 19.4326, -99.1332'); return; }
+  const fila = { nombre, cliente: $('#fsCliente').value.trim() || null, direccion: $('#fsDir').value.trim() || null, lat: c ? c.lat : null, lng: c ? c.lng : null,
+    radio_m: Math.min(5000, Math.max(20, parseInt($('#fsRadio').value, 10) || 150)), elementos_turno: Math.max(0, parseInt($('#fsTurno').value, 10) || 0), activo: $('#fsActivo').checked };
+  try {
+    const r = editS ? await sb.from('servicios').update(fila).eq('id', editS.id) : await sb.from('servicios').insert(fila);
+    if (r.error) throw r.error;
+    $('#dServ').close(); await cargarCatalogos(); pintarServicios();
+  } catch (e) { msg(/duplicate|unique/i.test(e.message) ? 'Ya existe un servicio con ese nombre.' : 'No se pudo guardar: ' + e.message); }
+};
+
+/* =================== CELULARES =================== */
+function cMsg(kind, t) { const m = $('#cMsg'); m.hidden = !t; m.className = 'msg ' + kind; m.textContent = t || ''; }
+function pintarCelulares() {
+  const B = $('#cBody');
+  if (!dispositivos.length) { B.innerHTML = '<tr><td colspan="6" class="empty">Todavía no hay celulares. Agrega el primero con el formulario de arriba.</td></tr>'; return; }
+  B.innerHTML = dispositivos.map(d => `<tr>
+    <td class="mono">${esc(d.email)}</td>
+    <td><select class="inline" data-email="${esc(d.email)}" aria-label="Servicio de ${esc(d.email)}">${servicios.map(s => `<option value="${s.id}" ${s.id === d.servicio_id ? 'selected' : ''}>${esc(s.nombre)}</option>`).join('')}</select></td>
+    <td>${esc(d.descripcion || '')}</td>
+    <td class="mono">${d.ultimo_registro ? fFecha.format(new Date(d.ultimo_registro)) + ' ' + fHM.format(new Date(d.ultimo_registro)) : '<span class="tag mut" style="font-family:var(--body)">Nunca</span>'}</td>
+    <td><input type="checkbox" data-act="${esc(d.email)}" ${d.activo ? 'checked' : ''} aria-label="Activo" style="width:20px;height:20px;accent-color:var(--ok)"></td>
+    <td style="text-align:right"><button class="btn sm danger" type="button" data-del="${esc(d.email)}">Quitar</button></td></tr>`).join('');
+  $$('#cBody select[data-email]').forEach(s => s.onchange = async () => { const { error } = await sb.from('dispositivos').update({ servicio_id: s.value }).eq('email', s.dataset.email); cMsg(error ? 'bad' : 'ok', error ? 'No se pudo cambiar: ' + error.message : `Listo: ${s.dataset.email} ahora registra en ${nombreServ(s.value)}.`); await cargarCatalogos(); });
+  $$('#cBody input[data-act]').forEach(c => c.onchange = async () => { const { error } = await sb.from('dispositivos').update({ activo: c.checked }).eq('email', c.dataset.act); if (error) cMsg('bad', error.message); await cargarCatalogos(); });
+  $$('#cBody button[data-del]').forEach(b => b.onclick = async () => {
+    if (!confirm(`¿Quitar el celular ${b.dataset.del}? Ya no podrá registrar asistencia. Sus registros anteriores se conservan.`)) return;
+    const { error } = await sb.from('dispositivos').delete().eq('email', b.dataset.del);
+    cMsg(error ? 'bad' : 'ok', error ? 'No se pudo quitar: ' + error.message : 'Celular quitado.'); await cargarCatalogos(); pintarCelulares();
+  });
+}
+$('#cForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const email = $('#cEmail').value.trim().toLowerCase(), servicio_id = $('#cServ').value;
+  if (!/^\S+@\S+\.\S+$/.test(email)) { cMsg('bad', 'Escribe un correo válido.'); return; }
+  if (!servicio_id) { cMsg('bad', 'Primero da de alta un servicio.'); return; }
+  const { error } = await sb.from('dispositivos').insert({ email, servicio_id, descripcion: $('#cDesc').value.trim() || null });
+  if (error) { cMsg('bad', /duplicate|unique/i.test(error.message) ? 'Ese correo ya está agregado. Cambia su servicio en la tabla.' : 'No se pudo agregar: ' + error.message); return; }
+  $('#cEmail').value = ''; $('#cDesc').value = '';
+  cMsg('ok', `Agregado. En el celular, abre el checador y crea el acceso con ${email}.`);
+  await cargarCatalogos(); pintarCelulares();
+};
+
+/* =================== SESIÓN =================== */
+let modoAlta = false;
+$('#lAlta').onclick = () => { modoAlta = !modoAlta; $('#lBtn').textContent = modoAlta ? 'Crear acceso' : 'Entrar'; $('#lAlta').textContent = modoAlta ? 'Ya tengo acceso: entrar' : 'Primera vez: crear mi acceso'; $('#lMsg').hidden = true; };
+$('#fLogin').onsubmit = async ev => {
+  ev.preventDefault();
+  const email = $('#lEmail').value.trim().toLowerCase(), password = $('#lPass').value;
+  const msg = (t, k = 'bad') => { $('#lMsg').hidden = false; $('#lMsg').className = 'msg ' + k; $('#lMsg').textContent = t; };
+  if (!email || password.length < 6) { msg('Escribe tu correo y una contraseña de al menos 6 caracteres.'); return; }
+  $('#lBtn').disabled = true;
+  try {
+    if (modoAlta) {
+      const { data, error } = await sb.auth.signUp({ email, password }); if (error) throw error;
+      if (!data.session) { msg('Acceso creado. Confirma tu correo con el enlace que te llegó y después entra.', 'ok'); $('#lAlta').click(); return; }
+    } else { const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw error; }
+    await iniciar();
+  } catch (e) { const m = e.message || ''; msg(/Invalid login/i.test(m) ? 'Correo o contraseña incorrectos.' : /confirm/i.test(m) ? 'Falta confirmar tu correo.' : /registered/i.test(m) ? 'Ese correo ya tiene acceso. Entra con tu contraseña.' : 'No se pudo entrar: ' + m); }
+  finally { $('#lBtn').disabled = false; }
+};
+async function salir() { await sb.auth.signOut(); location.reload(); }
+$('#salir').onclick = salir; $('#naSalir').onclick = salir;
+
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $('#vLogin').hidden = false; return; }
+  $('#vLogin').hidden = true;
+  const { data } = await sb.from('administradores').select('email').eq('email', session.user.email.toLowerCase()).maybeSingle();
+  if (!data) { $('#naEmail').textContent = session.user.email; $('#vNoAdmin').hidden = false; return; }
+  $('#whoEmail').textContent = session.user.email; $('#vApp').hidden = false;
+  await cargarCatalogos();
+  aplicarRango('hoy'); escucharEnVivo();
+  const h = (location.hash || '').slice(1); ir(secs[h] ? h : 'asistencia');
+}
+iniciar();
+})();
+</script>
+</body>
+</html>

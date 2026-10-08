@@ -1,0 +1,28 @@
+SISERO · Checador de asistencia
+================================
+
+Carpetas
+- checador/   App para los celulares de los servicios (se instala en la pantalla de inicio).
+- admin/      Panel de administrador (elementos, servicios, celulares, asistencia y reportes).
+- assets/     Logos e íconos.
+- config.js   Aquí van la Project URL y la anon key de Supabase.
+- supabase.sql  Base de datos. Se pega una sola vez en Supabase → SQL Editor.
+
+Puesta en marcha
+1. Supabase → SQL Editor → New query. Pega supabase.sql, cambia TU_CORREO@gmail.com
+   (última línea) por tu correo de administrador y presiona RUN.
+2. Supabase → Authentication → Sign In / Providers → Email: desactiva "Confirm email".
+   (Así los celulares crean su acceso sin tener que abrir un correo de confirmación.)
+3. Abre config.js y pega tu Project URL y tu anon public key (Project Settings → API).
+4. Entra a https://app.netlify.com/drop y arrastra la carpeta "sisero" completa.
+   Netlify te da una dirección, por ejemplo https://sisero-xxxx.netlify.app
+     Panel:    https://sisero-xxxx.netlify.app/admin/
+     Checador: https://sisero-xxxx.netlify.app/checador/
+5. En el panel, toca "Primera vez: crear mi acceso" con el mismo correo del paso 1.
+6. Da de alta en este orden: Servicios → Elementos → Celulares.
+7. En cada celular: abre la dirección del checador en Chrome, toca
+   "Primera vez en este celular: crear acceso" con el correo que agregaste en Celulares,
+   permite cámara y ubicación, y en el menú de Chrome elige "Agregar a pantalla principal".
+
+Para actualizar la app más adelante: vuelve a arrastrar la carpeta en el mismo sitio de Netlify
+(Deploys → arrastrar carpeta). Los datos no se tocan; viven en Supabase.
