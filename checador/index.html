@@ -109,6 +109,32 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:60
 label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background:#fff;padding:0 14px;font-size:17px;color:var(--ink)}
 .link{background:none;border:0;color:var(--blue);font-weight:600;padding:8px;font-size:15px}
 .empty{text-align:center;color:var(--muted);padding:28px 10px}
+.foot .lista{border:0;background:var(--navy);color:#fff;font-weight:700;font-size:14px;border-radius:999px;padding:8px 14px;display:inline-flex;align-items:center;gap:6px}
+.lh{padding:calc(env(safe-area-inset-top,0px) + 12px) 18px calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;flex-direction:column;gap:14px}
+.lh .acciones{display:grid;gap:10px}
+.wa{height:52px;border-radius:12px;border:0;background:#1d7a4a;color:#fff;font-weight:700;font-size:16px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+/* Tarjeta para captura */
+.cap{background:#fff;border-radius:16px;border:1px solid var(--line);overflow:hidden}
+.cap .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:3px solid var(--navy)}
+.cap .hd .logo{display:flex;align-items:center;gap:8px}
+.cap .hd .logo img:first-child{height:30px}.cap .hd .logo img:last-child{height:14px}
+.cap .hd small{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:right}
+.cap .tt{padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.cap .tt b{font-family:var(--display);font-style:italic;font-weight:800;font-size:24px;line-height:1.05;display:block}
+.cap .tt span{color:var(--muted);font-size:14px}
+.cap .estado{font-weight:800;font-size:14px;padding:6px 12px;border-radius:999px;white-space:nowrap}
+.cap .estado.ok{background:var(--ok-bg);color:var(--ok)}.cap .estado.bad{background:var(--bad-bg);color:var(--bad)}.cap .estado.mut{background:#e8edf4;color:var(--muted)}
+.cap ol{list-style:none;margin:0;padding:6px 16px 4px}
+.cap li{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.cap li:first-child{border-top:0}
+.cap li .n{width:28px;height:28px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:grid;place-items:center;font-weight:800;font-size:13px}
+.cap li .nm{min-width:0}.cap li .nm b{display:block;font-size:16px;font-weight:600;line-height:1.2}.cap li .nm span{font-size:13px;color:var(--muted)}
+.cap li .nm .c{color:var(--warn);font-weight:600}
+.cap li .hr{text-align:right;font-family:var(--mono);font-size:14px;line-height:1.3}.cap li .hr small{display:block;color:var(--muted);font-size:12px}
+.cap .ft{padding:10px 16px 14px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+.cap .vacio{padding:24px 16px;text-align:center;color:var(--muted)}
+.prev{position:fixed;inset:0;background:var(--bg);z-index:8;overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 16px) 14px 24px;display:flex;flex-direction:column;gap:12px}
+.prev .salir{align-self:center;font-size:13px;color:var(--muted);background:none;border:0;padding:6px}
 .viewer{position:fixed;inset:0;background:rgba(0,0,0,.85);display:grid;place-items:center;z-index:9;padding:20px}
 .viewer img{max-height:85vh;border-radius:10px}
 </style>
@@ -160,7 +186,7 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
       <p class="hint" id="qHint"></p>
       <div class="list" id="lista"></div>
     </div>
-    <div class="foot"><span id="fHoy"></span><span id="fPend"></span></div>
+    <div class="foot" style="align-items:center"><span id="fHoy"></span><span style="display:flex;align-items:center;gap:10px"><span id="fPend"></span><button class="lista" id="bLista" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>Lista de hoy</button></span></div>
   </section>
 
   <!-- Confirmar -->
@@ -214,6 +240,25 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
     <button class="cta" id="uOk" type="button">Entendido</button>
     <button class="ghost" id="uOtro" type="button"></button>
   </section>
+
+  <!-- Lista de hoy -->
+  <section id="vLista" class="lh" hidden>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="back" id="lhBack" type="button" aria-label="Volver"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0b2c55" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h2 style="flex:1">Lista de hoy</h2>
+      <button class="link" id="lhRecargar" type="button">Actualizar</button>
+    </div>
+    <div id="lhCard"></div>
+    <div class="acciones">
+      <button class="cta" id="lhPrev" type="button">Vista previa</button>
+      <a class="wa" id="lhWa" href="#" target="_blank" rel="noopener"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.6.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3a.5.5 0 0 0 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.1 5.1 0 0 0 1.1 2.7 11.6 11.6 0 0 0 4.5 4c1.7.7 2.3.8 3.1.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.2c0-.1-.2-.2-.5-.3z"/></svg>Enviar texto por WhatsApp</a>
+    </div>
+    <p class="hint" style="text-align:center">Toca “Vista previa”, toma la captura de pantalla y compártela en el grupo.</p>
+  </section>
+</div>
+<div class="prev" id="prev" hidden>
+  <div id="prevCard"></div>
+  <button class="salir" id="prevSalir" type="button">Toca aquí para regresar</button>
 </div>
 <div class="viewer" id="viewer" hidden><img id="viewerImg" alt="Foto de alta"></div>
 
@@ -243,7 +288,7 @@ let sel = null, tipo = 'Entrada', foto = null, gps = null, enviando = false, cue
 const fotosAlta = new Map();
 
 /* ---------- vistas ---------- */
-const vistas = ['vLogin', 'vSinServicio', 'vBuscar', 'vConfirmar', 'vListo', 'vDuplicado'];
+const vistas = ['vLogin', 'vSinServicio', 'vBuscar', 'vConfirmar', 'vListo', 'vDuplicado', 'vLista'];
 function ver(id) { vistas.forEach(v => { $('#' + v).hidden = v !== id; }); window.scrollTo(0, 0); }
 
 /* ---------- reloj y red ---------- */
@@ -497,6 +542,48 @@ function mostrarDuplicado(res) {
   ver('vDuplicado');
 }
 $('#uOk').onclick = () => { foto = null; volver(); };
+
+/* ---------- lista de hoy ---------- */
+let listaHoy = null;
+function tarjetaLista(d) {
+  const n = d.lista.length, req = d.requeridos || 0;
+  const [txt, cls] = req === 0 ? [`${n} registrado${n === 1 ? '' : 's'}`, 'mut'] : n >= req ? [`Completo ${n}/${req}`, 'ok'] : [`${n}/${req} · faltan ${req - n}`, 'bad'];
+  const filas = d.lista.map((p, i) => {
+    const ent = fHoraCorta.format(new Date(p.entrada));
+    const sal = p.salida ? `<small>Salida ${fHoraCorta.format(new Date(p.salida))}</small>` : '';
+    const extra = [p.puesto, p.turno].filter(Boolean).map(esc).join(' · ');
+    return `<li><span class="n">${i + 1}</span><div class="nm"><b>${esc(p.nombre)}</b><span>${extra}${p.cubre ? ' · <span class="c">cubre</span>' : ''}</span></div><div class="hr">${ent}${sal}</div></li>`;
+  }).join('');
+  return `<div class="cap">
+    <div class="hd"><div class="logo"><img src="../assets/sisero-icono.png" alt=""><img src="../assets/sisero-texto.png" alt="SISERO"></div><small>Lista de<br>asistencia</small></div>
+    <div class="tt"><div><b>${esc(d.servicio)}</b><span>${esc(d.fecha)} · corte ${esc(d.hora)} h</span></div><span class="estado ${cls}">${txt}</span></div>
+    ${n ? `<ol>${filas}</ol>` : '<div class="vacio">Nadie ha registrado entrada hoy.</div>'}
+    <div class="ft"><span>Hora de entrada registrada en el checador</span><span>SISERO</span></div>
+  </div>`;
+}
+function textoWhatsApp(d) {
+  const req = d.requeridos || 0, n = d.lista.length;
+  const lineas = d.lista.map((p, i) => `${i + 1}. ${p.nombre} – ${fHoraCorta.format(new Date(p.entrada))}${p.turno ? ' (' + p.turno + ')' : ''}${p.cubre ? ' · cubre' : ''}`);
+  return [`*SISERO · Lista de asistencia*`, `*${d.servicio}* – ${d.fecha}, corte ${d.hora} h`,
+    req ? (n >= req ? `✅ Completo ${n}/${req}` : `⚠️ ${n}/${req} – faltan ${req - n}`) : `${n} registrados`, '', ...lineas].join('\n');
+}
+async function abrirLista() {
+  ver('vLista');
+  const C = $('#lhCard');
+  if (!navigator.onLine) { C.innerHTML = '<div class="note warn">Sin señal. La lista se consulta en línea; intenta de nuevo cuando haya conexión.</div>'; return; }
+  C.innerHTML = '<div class="note info">Cargando lista…</div>';
+  const { data, error } = await sb.rpc('checador_lista_hoy');
+  if (error) { C.innerHTML = `<div class="note bad">No se pudo cargar la lista: ${esc(mensaje(error))}</div>`; return; }
+  listaHoy = data;
+  C.innerHTML = tarjetaLista(data);
+  $('#lhWa').href = 'https://wa.me/?text=' + encodeURIComponent(textoWhatsApp(data));
+}
+$('#bLista').onclick = abrirLista;
+$('#lhRecargar').onclick = abrirLista;
+$('#lhBack').onclick = () => volver();
+$('#lhPrev').onclick = () => { if (!listaHoy) return; $('#prevCard').innerHTML = tarjetaLista(listaHoy); $('#prev').hidden = false; window.scrollTo(0, 0); };
+$('#prevSalir').onclick = () => { $('#prev').hidden = true; };
+$('#prevCard').onclick = () => { $('#prev').hidden = true; };
 
 /* ---------- subir pendientes ---------- */
 let vaciando = false;
