@@ -111,6 +111,30 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
 .svc{padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
 .svc .meta{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);align-items:center}
 .svc .meta b{color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{padding:14px 16px;border-top:4px solid var(--navy)}
+.kpi span{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.kpi b{display:block;font-family:var(--display);font-style:italic;font-weight:800;font-size:38px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi small{color:var(--muted);font-size:13px}
+.cobgrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(240px,1fr);gap:12px}
+@media (max-width:900px){.cobgrid{grid-template-columns:1fr}}
+.panel{padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel h3{margin:0;font-family:var(--display);font-style:italic;font-weight:800;font-size:19px;color:var(--navy)}
+.hbars{display:flex;flex-direction:column;gap:10px}
+.hb{display:grid;grid-template-columns:minmax(90px,190px) minmax(0,1fr) 58px;gap:10px;align-items:center;font-size:14px}
+.hb .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb .tr{height:18px;background:var(--line-2);border-radius:4px;display:flex;overflow:hidden}
+.hb .tr i{display:block;height:100%}
+.hb .ct{font-family:var(--mono);font-size:13px;text-align:right}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.leg i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.donut{display:grid;place-items:center;position:relative}
+.donut b{position:absolute;font-family:var(--display);font-style:italic;font-weight:800;font-size:34px}
+.cnt{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.cnt div{background:#f5f7fa;border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}
+.cnt b{font-family:var(--mono);font-size:18px}
+.yn{font-weight:700;font-size:13px}
+.yn.si{color:var(--ok)} .yn.no{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -137,6 +161,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
   <nav class="side">
     <div class="brand"><img src="../assets/sisero-logo.png" alt="SISERO"><span class="eyebrow">Control de asistencia</span></div>
     <button class="nav" data-sec="asistencia" aria-current="page">Asistencia</button>
+    <button class="nav" data-sec="cobertura">Cobertura</button>
     <button class="nav" data-sec="elementos">Elementos</button>
     <button class="nav" data-sec="servicios">Servicios</button>
     <button class="nav" data-sec="celulares">Celulares</button>
@@ -183,6 +208,79 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
           <thead><tr><th>Foto</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Turno</th><th>Elemento</th><th>Puesto</th><th>Servicio</th><th>Ubicación</th></tr></thead>
           <tbody id="aBody"><tr><td colspan="9" class="empty">Cargando registros…</td></tr></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- ================= COBERTURA ================= -->
+    <section id="secCobertura" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Cobertura</h1><div class="sub" id="kSub">Turnos comprometidos contra elementos que checaron entrada en el día</div></div>
+        <span class="tag mut" id="kVivo"></span>
+      </div>
+      <div class="card filters">
+        <label class="f">Día<input id="kFecha" type="date"></label>
+        <div style="display:flex;gap:6px"><button class="btn sm" type="button" id="kAnt" aria-label="Día anterior">◀</button><button class="btn sm" type="button" id="kHoy">Hoy</button><button class="btn sm" type="button" id="kSig" aria-label="Día siguiente">▶</button></div>
+        <label class="f" style="flex:1 1 200px">Servicio<select id="kServ"><option value="">Todos los servicios</option></select></label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn outline" id="kInc" type="button">+ Registrar incidencia</button>
+          <button class="btn primary" id="kPdf" type="button">Descargar PDF</button>
+        </div>
+      </div>
+      <div class="progress" id="kProg" hidden></div>
+      <div class="kpis">
+        <div class="card kpi"><span>Turnos comprometidos</span><b id="kComp">0</b><small>Requeridos del día</small></div>
+        <div class="card kpi" style="border-top-color:var(--ok)"><span>Turnos cubiertos</span><b id="kCub" style="color:var(--ok)">0</b><small id="kCubPct"></small></div>
+        <div class="card kpi" style="border-top-color:var(--bad)"><span>Faltas</span><b id="kFal" style="color:var(--bad)">0</b><small>Turnos sin cubrir</small></div>
+        <div class="card kpi" style="border-top-color:var(--blue)"><span>Turnos adicionales</span><b id="kAdi" style="color:var(--blue)">0</b><small>Elementos de más</small></div>
+      </div>
+      <div class="cobgrid">
+        <div class="card panel">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h3>Cobertura por servicio</h3>
+            <div class="leg"><span><i style="background:var(--ok)"></i>Cubiertos</span><span><i style="background:var(--bad)"></i>Faltas</span><span><i style="background:var(--blue)"></i>Adicionales</span></div></div>
+          <div class="hbars" id="kBars"></div>
+        </div>
+        <div class="card panel">
+          <h3>% de cobertura</h3>
+          <div class="donut" id="kDonut"></div>
+          <div class="leg" style="justify-content:center"><span><i style="background:var(--ok)"></i>Cubiertos</span><span><i style="background:var(--bad)"></i>Faltas</span></div>
+        </div>
+      </div>
+      <div class="card panel">
+        <h3>Incidencias</h3>
+        <div class="tablebox"><table style="min-width:900px">
+          <thead><tr><th>Incidencia</th><th>Servicio</th><th>Nombre</th><th>Puesto</th><th>Motivo</th><th>¿Se cubre?</th><th>¿Quién cubre?</th><th>¿Se paga TE?</th><th></th></tr></thead>
+          <tbody id="kIncBody"></tbody>
+        </table></div>
+      </div>
+      <div class="cobgrid">
+        <div class="card panel">
+          <h3>Cubre incidencias</h3>
+          <div class="tablebox"><table style="min-width:520px">
+            <thead><tr><th>Nombre</th><th>Servicio</th><th>Cubre</th><th>Estatus</th></tr></thead>
+            <tbody id="kCubreBody"></tbody>
+          </table></div>
+        </div>
+        <div class="card panel">
+          <h3>Incidencias en general</h3>
+          <div class="cnt" id="kCnt"></div>
+        </div>
+      </div>
+      <div class="cobgrid">
+        <div class="card panel">
+          <h3>Tiempo de cobertura</h3>
+          <div class="sub" style="font-size:13px;margin-top:-6px">Hora en que el servicio completó a sus elementos requeridos</div>
+          <div class="tablebox"><table style="min-width:480px">
+            <thead><tr><th>Servicio</th><th>Elementos</th><th>Cubierto a las</th></tr></thead>
+            <tbody id="kTiempoBody"></tbody>
+          </table></div>
+        </div>
+        <div class="card panel">
+          <h3>Guardias armados</h3>
+          <div class="tablebox"><table style="min-width:360px">
+            <thead><tr><th>Servicio</th><th>Nombre</th><th>Portación</th></tr></thead>
+            <tbody id="kArmBody"></tbody>
+          </table></div>
+        </div>
       </div>
     </section>
 
@@ -254,6 +352,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <label class="f">Puesto<input id="fePuesto" type="text" list="dlPuestos" required></label>
         <label class="f">Servicio base<select id="feServ"></select></label>
         <label class="f">Turno<select id="feTurno"><option value="">Sin turno fijo (12x12 por hora)</option><option>12x12 D</option><option>12x12 N</option><option>24x24</option><option>12x24</option><option>12x36</option></select></label>
+        <label class="switch full"><span><b style="display:block">Portación de arma</b><span class="sub" style="font-size:14px">Aparece en “Guardias armados” del reporte de cobertura.</span></span><input id="fePort" type="checkbox"></label>
         <label class="switch full"><span><b style="display:block">Activo</b><span class="sub" style="font-size:14px">Si lo das de baja, deja de aparecer en el checador. Su historial se conserva.</span></span><input id="feActivo" type="checkbox" checked></label>
       </div>
     </div>
@@ -291,6 +390,27 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <div class="actions"><button class="btn" type="button" id="fsCancel">Cancelar</button><button class="btn primary" type="submit">Guardar servicio</button></div>
   </form>
 </dialog>
+
+<!-- Diálogo: incidencia -->
+<dialog id="dInc">
+  <form class="dlg" id="fInc" method="dialog" novalidate>
+    <h2 id="fiTitulo">Registrar incidencia</h2>
+    <div class="grid2">
+      <label class="f">Fecha<input id="fiFecha" type="date" required></label>
+      <label class="f">Incidencia<select id="fiTipo"><option>Falta</option><option>Incapacidad</option><option>Vacaciones</option><option>Vacante</option><option>Movimiento operativo</option><option>Otro</option></select></label>
+      <label class="f full">Servicio<select id="fiServ"></select></label>
+      <label class="f full" id="fiEmpBox">Elemento que falta<input id="fiEmp" type="text" list="dlEmp" placeholder="Escribe el nombre y elígelo de la lista" autocomplete="off"></label>
+      <label class="f full">Motivo<input id="fiMotivo" type="text" placeholder="Ej. Enfermedad, asunto familiar, no se presentó"></label>
+      <label class="switch full"><span><b style="display:block">¿Se cubre?</b><span class="sub" style="font-size:14px">Otro elemento cubrió el turno.</span></span><input id="fiCubre" type="checkbox"></label>
+      <label class="f full" id="fiQuienBox" hidden>¿Quién cubre?<input id="fiQuien" type="text" list="dlEmp" placeholder="Escribe el nombre y elígelo de la lista" autocomplete="off"></label>
+      <label class="switch full"><span><b style="display:block">¿Se paga tiempo extra?</b><span class="sub" style="font-size:14px">Cuenta en “Tiempos extras”.</span></span><input id="fiTE" type="checkbox"></label>
+      <label class="f full">Notas (opcional)<input id="fiNotas" type="text"></label>
+    </div>
+    <div id="fiMsg" class="msg bad" hidden></div>
+    <div class="actions"><button class="btn danger" type="button" id="fiBorrar" hidden style="margin-right:auto">Borrar</button><button class="btn" type="button" id="fiCancel">Cancelar</button><button class="btn primary" type="submit" id="fiGuardar">Guardar incidencia</button></div>
+  </form>
+</dialog>
+<datalist id="dlEmp"></datalist>
 
 <div class="viewer" id="viewer" hidden><img id="viewerImg" alt="Foto"></div>
 
@@ -387,17 +507,21 @@ async function cargarCatalogos() {
   servicios = s.data || []; empleados = e.data || []; dispositivos = d.data || [];
   const opts = (todos) => (todos ? '<option value="">Todos los servicios</option>' : '') + servicios.map(x => `<option value="${x.id}">${esc(x.nombre)}${x.activo ? '' : ' (inactivo)'}</option>`).join('');
   const keep = (sel, html) => { const v = sel.value; sel.innerHTML = html; if ([...sel.options].some(o => o.value === v)) sel.value = v; };
-  keep($('#aServ'), opts(true)); keep($('#eServ'), opts(true));
+  keep($('#aServ'), opts(true)); keep($('#eServ'), opts(true)); keep($('#kServ'), opts(true)); keep($('#fiServ'), opts(false));
+  $('#dlEmp').innerHTML = empleados.map(e => `<option value="${esc(etiquetaEmp(e))}">`).join('');
   keep($('#cServ'), servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join(''));
   keep($('#feServ'), '<option value="">Sin asignar</option>' + servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join(''));
 }
 const nombreServ = id => (servicios.find(s => s.id === id) || {}).nombre || '';
+const etiquetaEmp = e => e.nombre + (e.numero ? ' · No. ' + e.numero : '') + (e.activo ? '' : ' (baja)');
+const empPorEtiqueta = t => { t = (t || '').trim(); if (!t) return null; return empleados.find(e => etiquetaEmp(e) === t) || empleados.find(e => norm(e.nombre) === norm(t)) || undefined; };
 
 /* ---------- navegación ---------- */
-const secs = { asistencia: '#secAsistencia', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares' };
+const secs = { asistencia: '#secAsistencia', cobertura: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares' };
 function ir(sec) {
   Object.entries(secs).forEach(([k, s]) => { $(s).hidden = k !== sec; });
   $$('nav.side button.nav').forEach(b => b.setAttribute('aria-current', b.dataset.sec === sec ? 'page' : 'false'));
+  if (sec === 'cobertura') cargarCob();
   if (sec === 'elementos') pintarElementos();
   if (sec === 'servicios') pintarServicios();
   if (sec === 'celulares') pintarCelulares();
@@ -504,7 +628,7 @@ function escucharEnVivo() {
   if (canal) sb.removeChannel(canal);
   let t = null;
   canal = sb.channel('registros-vivo')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => { clearTimeout(t); t = setTimeout(cargarRegistros, 800); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => { clearTimeout(t); t = setTimeout(() => { cargarRegistros(); if (!$('#secCobertura').hidden && $('#kFecha').value === hoyISO()) cargarCob(); }, 800); })
     .subscribe();
   setInterval(cargarRegistros, 60000);   // respaldo por si se corta la conexión en vivo
 }
@@ -647,6 +771,238 @@ $('#aPdf').onclick = async () => {
   finally { btn.disabled = false; }
 };
 
+/* =================== COBERTURA =================== */
+const TIPOS_INC = ['Falta', 'Incapacidad', 'Vacaciones', 'Vacante', 'Movimiento operativo', 'Otro'];
+const dowDe = iso => (new Date(iso + 'T12:00:00Z').getUTCDay() + 6) % 7;      // Lunes = 0
+const NOM_DIA = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+let cob = null, cobCargando = false;
+const empDe = id => empleados.find(e => e.id === id);
+const esArmado = e => !!e && (e.portacion || /armad/i.test(e.puesto || ''));
+
+async function cargarCob() {
+  if (!$('#kFecha').value) $('#kFecha').value = hoyISO();
+  if (cobCargando) return; cobCargando = true;
+  const D = $('#kFecha').value;
+  try {
+    const [r, i] = await Promise.all([
+      sb.from('v_registros').select('*').gte('fecha_hora', inicioDia(D)).lt('fecha_hora', inicioDia(sumaDias(D, 1))).order('fecha_hora', { ascending: true }).limit(5000),
+      sb.from('incidencias').select('*').eq('fecha', D).order('creado', { ascending: true })
+    ]);
+    if (r.error) throw r.error;
+    if (i.error) throw new Error(/incidencias/i.test(i.error.message) ? 'Falta correr el archivo sql/6_cobertura.sql en Supabase.' : i.error.message);
+    cob = calcularCob(D, r.data || [], i.data || []);
+    pintarCob();
+    $('#kVivo').textContent = 'Actualizado ' + fHM.format(new Date());
+  } catch (e) { kProg('No se pudo cargar la cobertura: ' + e.message); }
+  finally { cobCargando = false; }
+}
+function kProg(t) { const p = $('#kProg'); p.hidden = !t; p.textContent = t || ''; }
+
+function calcularCob(D, regs, incs) {
+  const filtro = $('#kServ').value, dow = dowDe(D);
+  const filas = servicios.filter(s => !filtro || s.id === filtro).map(s => {
+    const req = s.activo ? (reqDe(s)[dow] || 0) : 0;
+    const primeras = new Map();                       // empleado → primera entrada del día
+    regs.filter(x => x.servicio_id === s.id && x.tipo === 'Entrada').forEach(x => { if (!primeras.has(x.empleado_id)) primeras.set(x.empleado_id, x); });
+    const llegadas = [...primeras.values()].sort((a, b) => a.fecha_hora.localeCompare(b.fecha_hora));
+    const pres = llegadas.length;
+    return { s, req, pres, cubiertos: Math.min(pres, req), faltas: Math.max(req - pres, 0), adicionales: Math.max(pres - req, 0),
+      completo: req > 0 && pres >= req ? llegadas[req - 1].fecha_hora : null, llegadas };
+  }).filter(x => x.req > 0 || x.pres > 0);
+  const t = k => filas.reduce((a, x) => a + x[k], 0);
+  const incF = incs.filter(x => !filtro || x.servicio_id === filtro);
+  // Quién está en turno: última marca del día por empleado y servicio
+  const ultima = new Map(); regs.forEach(x => ultima.set(x.empleado_id + '|' + x.servicio_id, x));
+  const cubren = [];
+  regs.filter(x => x.tipo === 'Entrada' && x.cubre && (!filtro || x.servicio_id === filtro)).forEach(x => {
+    if (cubren.some(c => c.empleado_id === x.empleado_id && c.servicio_id === x.servicio_id)) return;
+    const u = ultima.get(x.empleado_id + '|' + x.servicio_id), inc = incF.find(i => i.cubre_empleado_id === x.empleado_id && i.servicio_id === x.servicio_id);
+    cubren.push({ empleado_id: x.empleado_id, servicio_id: x.servicio_id, nombre: x.empleado, servicio: x.servicio,
+      cubre: inc ? `${inc.tipo}${inc.empleado_id ? ' de ' + ((empDe(inc.empleado_id) || {}).nombre || '') : ''}` : 'Cubre (base ' + (x.servicio_base || 'sin asignar') + ')',
+      estatus: u && u.tipo === 'Salida' ? 'Salió ' + fHM.format(new Date(u.fecha_hora)) : 'En turno desde ' + fHM.format(new Date(x.fecha_hora)) });
+  });
+  incF.filter(i => i.se_cubre && i.cubre_empleado_id && !cubren.some(c => c.empleado_id === i.cubre_empleado_id && c.servicio_id === i.servicio_id)).forEach(i => {
+    const e = empDe(i.cubre_empleado_id), u = ultima.get(i.cubre_empleado_id + '|' + i.servicio_id);
+    cubren.push({ empleado_id: i.cubre_empleado_id, servicio_id: i.servicio_id, nombre: e ? e.nombre : '', servicio: nombreServ(i.servicio_id),
+      cubre: `${i.tipo}${i.empleado_id ? ' de ' + ((empDe(i.empleado_id) || {}).nombre || '') : ''}`,
+      estatus: !u ? 'Sin checar' : u.tipo === 'Salida' ? 'Salió ' + fHM.format(new Date(u.fecha_hora)) : 'En turno' });
+  });
+  const armados = [];
+  filas.forEach(f => f.llegadas.forEach(x => { const e = empDe(x.empleado_id); if (esArmado(e)) armados.push({ servicio: f.s.nombre, nombre: e.nombre, portacion: !!e.portacion }); }));
+  const cuenta = Object.fromEntries(TIPOS_INC.map(k => [k, incF.filter(i => i.tipo === k).length]));
+  cuenta['Tiempos extras'] = incF.filter(i => i.paga_te).length;
+  return { D, filas, comp: t('req'), cub: t('cubiertos'), fal: t('faltas'), adi: t('adicionales'), incs: incF, cubren, armados, cuenta };
+}
+
+function donutSVG(pct) {
+  const r = 52, c = 2 * Math.PI * r, v = Math.max(0, Math.min(100, pct));
+  return `<svg width="170" height="170" viewBox="0 0 140 140" role="img" aria-label="${v}% de cobertura"><circle cx="70" cy="70" r="${r}" fill="none" stroke="${v < 100 ? 'var(--bad)' : 'var(--ok)'}" stroke-width="20"/>
+    <circle cx="70" cy="70" r="${r}" fill="none" stroke="var(--ok)" stroke-width="20" stroke-dasharray="${c * v / 100} ${c}" transform="rotate(-90 70 70)"/></svg><b>${v}%</b>`;
+}
+const pctCob = c => c.comp ? Math.round(c.cub / c.comp * 1000) / 10 : (c.adi ? 100 : 0);
+const siNo = v => `<span class="yn ${v ? 'si' : 'no'}">${v ? 'Sí' : 'No'}</span>`;
+
+function pintarCob() {
+  const c = cob; if (!c) return;
+  const hoy = c.D === hoyISO();
+  $('#kSub').textContent = `${NOM_DIA[dowDe(c.D)][0].toUpperCase() + NOM_DIA[dowDe(c.D)].slice(1)} ${fechaCorta(c.D)} · elementos distintos que checaron entrada contra los requeridos del día${hoy ? ' · los turnos de la noche se suman cuando chequen' : ''}`;
+  $('#kComp').textContent = c.comp; $('#kCub').textContent = c.cub; $('#kFal').textContent = c.fal; $('#kAdi').textContent = c.adi;
+  $('#kCubPct').textContent = `${pctCob(c)}% de cobertura`;
+  const max = Math.max(1, ...c.filas.map(f => Math.max(f.req, f.pres)));
+  const orden = c.filas.slice().sort((a, b) => b.faltas - a.faltas || a.s.nombre.localeCompare(b.s.nombre, 'es'));
+  $('#kBars').innerHTML = orden.length ? orden.map(f => `<div class="hb"><span class="nm" title="${esc(f.s.nombre)}">${esc(f.s.nombre)}</span>
+    <span class="tr" title="Cubiertos ${f.cubiertos} · Faltas ${f.faltas} · Adicionales ${f.adicionales}"><i style="width:${f.cubiertos / max * 100}%;background:var(--ok)"></i><i style="width:${f.faltas / max * 100}%;background:var(--bad)"></i><i style="width:${f.adicionales / max * 100}%;background:var(--blue)"></i></span>
+    <span class="ct">${f.pres}/${f.req}</span></div>`).join('') : '<div class="empty">Ningún servicio requiere personal este día.</div>';
+  $('#kDonut').innerHTML = donutSVG(pctCob(c));
+  // Incidencias
+  $('#kIncBody').innerHTML = c.incs.length ? c.incs.map(i => { const e = empDe(i.empleado_id), q = empDe(i.cubre_empleado_id); return `<tr>
+    <td><b style="font-weight:600">${esc(i.tipo)}</b></td><td>${esc(nombreServ(i.servicio_id))}</td><td>${e ? esc(e.nombre) : '<span class="tag mut">Vacante</span>'}</td><td>${esc(e ? e.puesto : '')}</td>
+    <td>${esc(i.motivo || '')}</td><td>${siNo(i.se_cubre)}</td><td>${q ? esc(q.nombre) : (i.se_cubre ? '<span class="tag mut">Sin nombre</span>' : '—')}</td><td>${siNo(i.paga_te)}</td>
+    <td style="text-align:right"><button class="btn sm" type="button" data-inc="${i.id}">Editar</button></td></tr>`; }).join('')
+    : '<tr><td colspan="9" class="empty">Sin incidencias este día. Regístralas con “+ Registrar incidencia”.</td></tr>';
+  $$('#kIncBody button[data-inc]').forEach(b => b.onclick = () => abrirInc(c.incs.find(x => x.id === b.dataset.inc)));
+  $('#kCubreBody').innerHTML = c.cubren.length ? c.cubren.map(x => `<tr><td><b style="font-weight:600">${esc(x.nombre)}</b></td><td>${esc(x.servicio)}</td><td>${esc(x.cubre)}</td><td><span class="tag ${/^En turno/.test(x.estatus) ? 'ok' : /Sin/.test(x.estatus) ? 'bad' : 'mut'}">${esc(x.estatus)}</span></td></tr>`).join('')
+    : '<tr><td colspan="4" class="empty">Nadie cubrió turnos este día.</td></tr>';
+  const etq = { 'Falta': 'Faltas', 'Incapacidad': 'Incapacidades', 'Vacaciones': 'Vacaciones', 'Vacante': 'Vacantes en turno', 'Movimiento operativo': 'Mov. operativos', 'Otro': 'Otro', 'Tiempos extras': 'Tiempos extras' };
+  $('#kCnt').innerHTML = Object.entries(c.cuenta).map(([k, n]) => `<div><span>${etq[k]}</span><b style="color:${n ? 'var(--ink)' : 'var(--muted)'}">${n}</b></div>`).join('');
+  const tiempo = c.filas.filter(f => f.req > 0).sort((a, b) => (a.completo || 'z').localeCompare(b.completo || 'z') || a.s.nombre.localeCompare(b.s.nombre, 'es'));
+  $('#kTiempoBody').innerHTML = tiempo.length ? tiempo.map(f => `<tr><td>${esc(f.s.nombre)}</td><td class="mono">${f.pres}/${f.req}</td><td>${f.completo ? `<span class="mono" style="font-weight:600">${fHM.format(new Date(f.completo))}</span>` : `<span class="tag bad">Incompleto · faltan ${f.faltas}</span>`}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="empty">Sin servicios con personal requerido.</td></tr>';
+  $('#kArmBody').innerHTML = c.armados.length ? c.armados.map(a => `<tr><td>${esc(a.servicio)}</td><td><b style="font-weight:600">${esc(a.nombre)}</b></td><td>${siNo(a.portacion)}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="empty">Ningún guardia armado checó este día. Marca “Portación de arma” en Elementos.</td></tr>';
+}
+$('#kFecha').onchange = cargarCob;
+$('#kServ').onchange = cargarCob;
+$('#kHoy').onclick = () => { $('#kFecha').value = hoyISO(); cargarCob(); };
+$('#kAnt').onclick = () => { $('#kFecha').value = sumaDias($('#kFecha').value || hoyISO(), -1); cargarCob(); };
+$('#kSig').onclick = () => { $('#kFecha').value = sumaDias($('#kFecha').value || hoyISO(), 1); cargarCob(); };
+
+/* ---------- incidencias ---------- */
+let editI = null;
+function fiQuien() { $('#fiQuienBox').hidden = !$('#fiCubre').checked; }
+function fiTipo() { const v = $('#fiTipo').value === 'Vacante'; $('#fiEmpBox').firstChild.textContent = v ? 'Elemento (vacío = puesto vacante)' : 'Elemento que falta'; }
+$('#fiCubre').onchange = fiQuien; $('#fiTipo').onchange = fiTipo;
+function abrirInc(i) {
+  editI = i || null;
+  $('#fiTitulo').textContent = i ? 'Editar incidencia' : 'Registrar incidencia';
+  $('#fiFecha').value = i ? i.fecha : ($('#kFecha').value || hoyISO());
+  $('#fiTipo').value = i ? i.tipo : 'Falta';
+  $('#fiServ').value = i ? i.servicio_id : ($('#kServ').value || (servicios.find(s => s.activo) || {}).id || '');
+  const e = i && empDe(i.empleado_id), q = i && empDe(i.cubre_empleado_id);
+  $('#fiEmp').value = e ? etiquetaEmp(e) : ''; $('#fiQuien').value = q ? etiquetaEmp(q) : '';
+  $('#fiMotivo').value = i ? i.motivo || '' : ''; $('#fiNotas').value = i ? i.notas || '' : '';
+  $('#fiCubre').checked = !!(i && i.se_cubre); $('#fiTE').checked = !!(i && i.paga_te);
+  $('#fiBorrar').hidden = !i; $('#fiMsg').hidden = true; fiQuien(); fiTipo();
+  $('#dInc').showModal();
+}
+$('#kInc').onclick = () => abrirInc(null);
+$('#fiCancel').onclick = () => $('#dInc').close();
+$('#fInc').onsubmit = async ev => {
+  ev.preventDefault();
+  const msg = t => { $('#fiMsg').hidden = false; $('#fiMsg').textContent = t; };
+  const emp = empPorEtiqueta($('#fiEmp').value), quien = $('#fiCubre').checked ? empPorEtiqueta($('#fiQuien').value) : null, tipo = $('#fiTipo').value;
+  if (!$('#fiFecha').value || !$('#fiServ').value) { msg('Elige la fecha y el servicio.'); return; }
+  if (emp === undefined) { msg('No encontré a ese elemento. Escríbelo y elígelo de la lista.'); return; }
+  if (quien === undefined) { msg('No encontré a quien cubre. Escríbelo y elígelo de la lista.'); return; }
+  if (!emp && tipo !== 'Vacante' && tipo !== 'Otro' && tipo !== 'Movimiento operativo') { msg('Escribe el elemento (o elige “Vacante” si el puesto no tiene a nadie).'); return; }
+  const fila = { fecha: $('#fiFecha').value, servicio_id: $('#fiServ').value, tipo, empleado_id: emp ? emp.id : null, motivo: $('#fiMotivo').value.trim() || null,
+    se_cubre: $('#fiCubre').checked, cubre_empleado_id: quien ? quien.id : null, paga_te: $('#fiTE').checked, notas: $('#fiNotas').value.trim() || null };
+  const btn = $('#fiGuardar'); btn.disabled = true;
+  try {
+    const r = editI ? await sb.from('incidencias').update(fila).eq('id', editI.id) : await sb.from('incidencias').insert(fila);
+    if (r.error) throw r.error;
+    $('#dInc').close(); if (fila.fecha !== $('#kFecha').value) $('#kFecha').value = fila.fecha; await cargarCob();
+  } catch (e) { msg('No se pudo guardar: ' + (/incidencias/i.test(e.message) && /exist|schema/i.test(e.message) ? 'falta correr sql/6_cobertura.sql en Supabase.' : e.message)); }
+  finally { btn.disabled = false; }
+};
+$('#fiBorrar').onclick = async () => {
+  if (!editI || !confirm('¿Borrar esta incidencia?')) return;
+  const { error } = await sb.from('incidencias').delete().eq('id', editI.id);
+  if (error) { $('#fiMsg').hidden = false; $('#fiMsg').textContent = 'No se pudo borrar: ' + error.message; return; }
+  $('#dInc').close(); await cargarCob();
+};
+
+/* ---------- PDF de cobertura ---------- */
+$('#kPdf').onclick = async () => {
+  const btn = $('#kPdf'); btn.disabled = true;
+  try {
+    await cargarCob(); const c = cob; if (!c) return;
+    kProg('Generando PDF…');
+    const L = await cargarLogos();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
+    const navy = [11, 44, 85], muted = [91, 100, 112], ok = [29, 122, 74], bad = [179, 38, 30], blue = [47, 106, 163], ink = [20, 26, 34], line = [213, 219, 227];
+    const ih = 15, iw = ih * L.icm.w / L.icm.h; doc.addImage(L.ic, 'PNG', M, M, iw, ih);
+    const th = 5.2, tw = th * L.txm.w / L.txm.h; doc.addImage(L.tx, 'PNG', M + iw + 4, M + 2.5, tw, th);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+    doc.text('SEGURIDAD PRIVADA · CONTROL DE ASISTENCIA', M + iw + 4, M + 12.5);
+    doc.text(`Generado: ${fGen.format(new Date())}`, W - M, M + 5, { align: 'right' });
+    doc.setDrawColor(...navy); doc.setLineWidth(0.9); doc.line(M, M + 19, W - M, M + 19);
+    doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(17); doc.setTextColor(...navy);
+    doc.text('Reporte de cobertura', M, M + 28);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(...ink);
+    const dia = NOM_DIA[dowDe(c.D)];
+    doc.text(`${$('#kServ').value ? nombreServ($('#kServ').value) : 'Todos los servicios'} · ${dia[0].toUpperCase() + dia.slice(1)} ${fechaCorta(c.D)}`, M, M + 34);
+    // KPIs
+    const res = [['TURNOS COMPROMETIDOS', c.comp, navy], ['TURNOS CUBIERTOS', c.cub, ok], ['FALTAS', c.fal, bad], ['TURNOS ADICIONALES', c.adi, blue], ['% COBERTURA', pctCob(c) + '%', pctCob(c) >= 100 ? ok : bad]];
+    const bw = (W - 2 * M - 12) / 5, by = M + 39;
+    res.forEach(([k, v, col], i) => {
+      const x = M + i * (bw + 3); doc.setDrawColor(...line); doc.setLineWidth(0.3); doc.roundedRect(x, by, bw, 16, 1.5, 1.5);
+      doc.setFillColor(...col); doc.rect(x, by, bw, 1.2, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.3); doc.setTextColor(...muted); doc.text(k, x + 3, by + 6);
+      doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(15); doc.setTextColor(...col); doc.text(String(v), x + 3, by + 13.5);
+    });
+    // Barras por servicio
+    let y = by + 24;
+    doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(11.5); doc.setTextColor(...navy); doc.text('Cobertura por servicio', M, y);
+    [['Cubiertos', ok], ['Faltas', bad], ['Adicionales', blue]].forEach(([t, col], i) => { const x = W - M - 75 + i * 25; doc.setFillColor(...col); doc.rect(x, y - 2.6, 3, 3, 'F'); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...muted); doc.text(t, x + 4.2, y); });
+    y += 4;
+    const filas = c.filas.slice().sort((a, b) => b.faltas - a.faltas || a.s.nombre.localeCompare(b.s.nombre, 'es'));
+    const max = Math.max(1, ...filas.map(f => Math.max(f.req, f.pres))), nx = M + 52, bwid = W - M - 16 - nx;
+    filas.forEach(f => {
+      if (y > H - 22) { doc.addPage(); y = M + 6; }
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...ink);
+      doc.text(doc.splitTextToSize(f.s.nombre, 50)[0], M, y + 3.3);
+      doc.setFillColor(238, 241, 245); doc.rect(nx, y, bwid, 4.4, 'F');
+      let x = nx; [[f.cubiertos, ok], [f.faltas, bad], [f.adicionales, blue]].forEach(([n, col]) => { if (!n) return; const w = n / max * bwid; doc.setFillColor(...col); doc.rect(x, y, w, 4.4, 'F'); x += w; });
+      doc.setFont('courier', 'bold'); doc.setFontSize(8.5); doc.text(`${f.pres}/${f.req}`, W - M, y + 3.3, { align: 'right' });
+      y += 6.4;
+    });
+    if (!filas.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...muted); doc.text('Ningún servicio requiere personal este día.', M, y + 3); y += 6; }
+    const tabla = (titulo, head, body, extra = {}) => {
+      let sy = (doc.lastAutoTable && doc.lastAutoTable.__mio ? doc.lastAutoTable.finalY : y) + 9;
+      if (sy > H - 40) { doc.addPage(); sy = M + 6; }
+      doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(11.5); doc.setTextColor(...navy); doc.text(titulo, M, sy);
+      doc.autoTable({ startY: sy + 2.5, margin: { left: M, right: M, top: 14, bottom: 14 }, head: [head], body: body.length ? body : [[{ content: 'Sin registros', colSpan: head.length, styles: { textColor: muted, halign: 'center' } }]],
+        theme: 'grid', styles: { font: 'helvetica', fontSize: 8.4, cellPadding: 1.7, valign: 'middle', lineColor: line, lineWidth: 0.2, textColor: ink },
+        headStyles: { fillColor: navy, textColor: 255, fontStyle: 'bold' }, ...extra,
+        didParseCell: d => { if (d.section === 'body' && (d.cell.raw === 'Sí' || d.cell.raw === 'No')) { d.cell.styles.textColor = d.cell.raw === 'Sí' ? ok : bad; d.cell.styles.fontStyle = 'bold'; } if (d.section === 'body' && /^Incompleto/.test(d.cell.raw || '')) d.cell.styles.textColor = bad; } });
+      doc.lastAutoTable.__mio = true;
+    };
+    const sn = v => v ? 'Sí' : 'No';
+    tabla('Incidencias', ['Incidencia', 'Servicio', 'Nombre', 'Puesto', 'Motivo', '¿Se cubre?', '¿Quién cubre?', '¿Paga TE?'],
+      c.incs.map(i => { const e = empDe(i.empleado_id), q = empDe(i.cubre_empleado_id); return [i.tipo, nombreServ(i.servicio_id), e ? e.nombre : 'Vacante', e ? e.puesto : '', i.motivo || '', sn(i.se_cubre), q ? q.nombre : '', sn(i.paga_te)]; }));
+    tabla('Cubre incidencias', ['Nombre', 'Servicio', 'Cubre', 'Estatus'], c.cubren.map(x => [x.nombre, x.servicio, x.cubre, x.estatus]));
+    const etq = { 'Falta': 'Faltas', 'Incapacidad': 'Incapacidades', 'Vacaciones': 'Vacaciones', 'Vacante': 'Vacantes en turno', 'Movimiento operativo': 'Movimientos operativos', 'Otro': 'Otro', 'Tiempos extras': 'Tiempos extras' };
+    tabla('Incidencias en general', ['Concepto', 'Total'], Object.entries(c.cuenta).map(([k, n]) => [etq[k], String(n)]), { tableWidth: 90, columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } } });
+    tabla('Tiempo de cobertura', ['Servicio', 'Elementos', 'Cubierto a las'],
+      c.filas.filter(f => f.req > 0).sort((a, b) => (a.completo || 'z').localeCompare(b.completo || 'z')).map(f => [f.s.nombre, `${f.pres}/${f.req}`, f.completo ? fHM.format(new Date(f.completo)) : `Incompleto · faltan ${f.faltas}`]),
+      { columnStyles: { 1: { halign: 'center', cellWidth: 26 }, 2: { cellWidth: 50, fontStyle: 'bold' } } });
+    tabla('Guardias armados', ['Servicio', 'Nombre', '¿Con portación?'], c.armados.map(a => [a.servicio, a.nombre, sn(a.portacion)]), { columnStyles: { 2: { halign: 'center', cellWidth: 32 } } });
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) {
+      doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+      doc.setDrawColor(...line); doc.setLineWidth(0.2); doc.line(M, H - 10, W - M, H - 10);
+      doc.text('SISERO · Cobertura calculada con las entradas del checador contra los elementos requeridos de cada servicio.', M, H - 6);
+      doc.text(`Página ${i} de ${n}`, W - M, H - 6, { align: 'right' });
+    }
+    doc.save(`SISERO_cobertura_${archivo($('#kServ').value ? nombreServ($('#kServ').value) : 'todos')}_${c.D}.pdf`);
+    kProg('');
+  } catch (e) { kProg('No se pudo generar el PDF: ' + e.message); }
+  finally { btn.disabled = false; }
+};
+
 /* =================== ELEMENTOS =================== */
 ['#eQ', '#eServ', '#eEst'].forEach(s => $(s).addEventListener('input', pintarElementos));
 async function pintarElementos() {
@@ -658,7 +1014,7 @@ async function pintarElementos() {
   if (!lista.length) { B.innerHTML = `<tr><td colspan="8" class="empty">${empleados.length ? 'Nadie coincide con la búsqueda.' : 'Todavía no hay elementos. Da de alta el primero con el botón de arriba.'}</td></tr>`; return; }
   B.innerHTML = lista.map(e => `<tr>
     <td><div class="person"><div class="av" data-foto="${esc(e.foto_path || '')}">${esc(ini(e.nombre))}</div><b style="font-weight:600">${esc(e.nombre)}</b></div></td>
-    <td class="mono">${esc(e.numero || '')}</td><td>${esc(e.puesto)}</td><td>${esc(nombreServ(e.servicio_base_id) || 'Sin asignar')}</td><td class="mono">${esc(e.turno || '—')}</td>
+    <td class="mono">${esc(e.numero || '')}</td><td>${esc(e.puesto)}${e.portacion ? ' <span class="tag ok">· Portación</span>' : ''}</td><td>${esc(nombreServ(e.servicio_base_id) || 'Sin asignar')}</td><td class="mono">${esc(e.turno || '—')}</td>
     <td class="mono">${esc(e.telefono || '')}</td>
     <td><span class="pill ${e.activo ? 'on' : 'off'}">${e.activo ? 'Activo' : 'Baja'}</span></td>
     <td style="text-align:right"><button class="btn sm" type="button" data-id="${e.id}">Editar</button></td></tr>`).join('');
@@ -671,7 +1027,7 @@ function abrirElemento(e) {
   editE = e || null; fotoE = null;
   $('#feTitulo').textContent = e ? 'Editar elemento' : 'Dar de alta elemento';
   $('#feNombre').value = e ? e.nombre : ''; $('#feNumero').value = e ? e.numero || '' : ''; $('#feTel').value = e ? e.telefono || '' : '';
-  $('#fePuesto').value = e ? e.puesto : ''; $('#feServ').value = e ? e.servicio_base_id || '' : ($('#eServ').value || ''); $('#feActivo').checked = e ? e.activo : true; $('#feTurno').value = e ? e.turno || '' : '';
+  $('#fePuesto').value = e ? e.puesto : ''; $('#feServ').value = e ? e.servicio_base_id || '' : ($('#eServ').value || ''); $('#feActivo').checked = e ? e.activo : true; $('#feTurno').value = e ? e.turno || '' : ''; $('#fePort').checked = !!(e && e.portacion);
   $('#feMsg').hidden = true;
   const box = $('#feFotoBox'); box.textContent = 'Subir o tomar foto';
   if (e && e.foto_path) urlsFirmadas([e.foto_path]).then(get => { const u = get(e.foto_path); if (u && editE === e && !fotoE) box.innerHTML = `<img src="${u}" alt="Foto de alta">`; });
@@ -686,7 +1042,7 @@ $('#feFoto').onchange = async ev => {
 $('#fElem').onsubmit = async ev => {
   ev.preventDefault();
   const msg = t => { $('#feMsg').hidden = false; $('#feMsg').textContent = t; };
-  const fila = { nombre: $('#feNombre').value.trim().replace(/\s+/g, ' '), numero: $('#feNumero').value.trim() || null, telefono: $('#feTel').value.trim() || null, puesto: $('#fePuesto').value.trim(), servicio_base_id: $('#feServ').value || null, turno: $('#feTurno').value || null, activo: $('#feActivo').checked };
+  const fila = { nombre: $('#feNombre').value.trim().replace(/\s+/g, ' '), numero: $('#feNumero').value.trim() || null, telefono: $('#feTel').value.trim() || null, puesto: $('#fePuesto').value.trim(), servicio_base_id: $('#feServ').value || null, turno: $('#feTurno').value || null, portacion: $('#fePort').checked, activo: $('#feActivo').checked };
   if (!fila.nombre || !fila.puesto) { msg('Escribe el nombre completo y el puesto.'); return; }
   const btn = $('#feGuardar'); btn.disabled = true;
   try {
