@@ -6,6 +6,10 @@
 <meta name="theme-color" content="#0b2c55">
 <title>SISERO · Administrador</title>
 <link rel="icon" href="../assets/favicon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SISERO Admin">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,700;1,700;1,800&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
 <style>
@@ -165,7 +169,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <button class="nav" data-sec="elementos">Elementos</button>
     <button class="nav" data-sec="servicios">Servicios</button>
     <button class="nav" data-sec="celulares">Celulares</button>
-    <div class="who"><span id="whoEmail"></span><button class="btn sm" id="salir" type="button">Salir</button></div>
+    <div class="who"><span id="whoEmail"></span><button class="btn sm outline" id="instalar" type="button" hidden>Instalar app</button><button class="btn sm" id="salir" type="button">Salir</button></div>
   </nav>
 
   <main>
@@ -414,6 +418,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
 
 <div class="viewer" id="viewer" hidden><img id="viewerImg" alt="Foto"></div>
 
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 <script src="../config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
@@ -1189,6 +1194,12 @@ async function iniciar() {
   const h = (location.hash || '').slice(1); ir(secs[h] ? h : 'asistencia');
 }
 iniciar();
+
+/* ---------- instalar como app ---------- */
+let pedido = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedido = e; $('#instalar').hidden = false; });
+window.addEventListener('appinstalled', () => { $('#instalar').hidden = true; pedido = null; });
+$('#instalar').onclick = async () => { if (!pedido) return; pedido.prompt(); await pedido.userChoice; pedido = null; $('#instalar').hidden = true; };
 })();
 </script>
 </body>
