@@ -4,7 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SISERO</title>
+<meta name="theme-color" content="#0b2c55">
 <link rel="icon" href="assets/favicon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SISERO">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@1,800&family=Barlow:wght@500;600&display=swap">
 <style>
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f1f3f6;font-family:Barlow,system-ui,sans-serif;color:#141a22}
@@ -12,6 +17,9 @@ body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f1f3f
 img{width:170px;align-self:center;margin-bottom:10px}
 a{display:block;height:60px;line-height:60px;border-radius:12px;text-decoration:none;font:italic 800 21px "Exo 2",sans-serif;text-transform:uppercase}
 .a1{background:#0b2c55;color:#fff}.a2{background:#fff;color:#0b2c55;border:1px solid #c8d0da}
+button.inst{height:46px;border-radius:12px;border:1px dashed #2f6aa3;background:transparent;color:#2f6aa3;font:600 16px Barlow,system-ui,sans-serif;cursor:pointer}
+.ayuda{font-size:14px;color:#5b6470;line-height:1.4}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -19,6 +27,17 @@ a{display:block;height:60px;line-height:60px;border-radius:12px;text-decoration:
   <img src="assets/sisero-logo.png" alt="SISERO">
   <a class="a1" href="checador/">Asistencia</a>
   <a class="a2" href="admin/">Administrador</a>
+  <button class="inst" id="instalar" type="button" hidden>Instalar SISERO en este equipo</button>
+  <div class="ayuda" id="ayudaIos" hidden>En iPhone: toca <b>Compartir</b> y luego <b>“Agregar a inicio”</b>.</div>
 </div>
+<script>
+let pedido = null; const b = document.getElementById('instalar');
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedido = e; b.hidden = false; });
+window.addEventListener('appinstalled', () => { b.hidden = true; });
+b.onclick = async () => { if (!pedido) return; pedido.prompt(); await pedido.userChoice; pedido = null; b.hidden = true; };
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone) document.getElementById('ayudaIos').hidden = false;
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+</script>
 </body>
 </html>
