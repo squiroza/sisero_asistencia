@@ -167,6 +167,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <button class="nav" data-sec="asistencia" aria-current="page">Asistencia</button>
     <button class="nav" data-sec="nocturna">Asistencia nocturna</button>
     <button class="nav" data-sec="cobertura">Cobertura</button>
+    <button class="nav" data-sec="coberturaNoche">Cobertura nocturna</button>
     <button class="nav" data-sec="elementos">Elementos</button>
     <button class="nav" data-sec="servicios">Servicios</button>
     <button class="nav" data-sec="celulares">Celulares</button>
@@ -241,11 +242,11 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <!-- ================= COBERTURA ================= -->
     <section id="secCobertura" hidden style="display:flex;flex-direction:column;gap:18px">
       <div class="head">
-        <div><h1>Cobertura</h1><div class="sub" id="kSub">Turnos comprometidos contra elementos que checaron entrada en el día</div></div>
+        <div><h1 id="kTitulo">Cobertura</h1><div class="sub" id="kSub">Turnos comprometidos contra elementos que checaron entrada en el día</div></div>
         <span class="tag mut" id="kVivo"></span>
       </div>
       <div class="card filters">
-        <label class="f">Día<input id="kFecha" type="date"></label>
+        <label class="f"><span id="kFechaLbl">Día</span><input id="kFecha" type="date"></label>
         <div style="display:flex;gap:6px"><button class="btn sm" type="button" id="kAnt" aria-label="Día anterior">◀</button><button class="btn sm" type="button" id="kHoy">Hoy</button><button class="btn sm" type="button" id="kSig" aria-label="Día siguiente">▶</button></div>
         <label class="f" style="flex:1 1 200px">Servicio<select id="kServ"><option value="">Todos los servicios</option></select></label>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -255,7 +256,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
       </div>
       <div class="progress" id="kProg" hidden></div>
       <div class="kpis">
-        <div class="card kpi"><span>Turnos comprometidos</span><b id="kComp">0</b><small>Requeridos del día</small></div>
+        <div class="card kpi"><span>Turnos comprometidos</span><b id="kComp">0</b><small id="kCompLbl">Requeridos del día</small></div>
         <div class="card kpi" style="border-top-color:var(--ok)"><span>Turnos cubiertos</span><b id="kCub" style="color:var(--ok)">0</b><small id="kCubPct"></small></div>
         <div class="card kpi" style="border-top-color:var(--bad)"><span>Faltas</span><b id="kFal" style="color:var(--bad)">0</b><small>Turnos sin cubrir</small></div>
         <div class="card kpi" style="border-top-color:var(--blue)"><span>Turnos adicionales</span><b id="kAdi" style="color:var(--blue)">0</b><small>Elementos de más</small></div>
@@ -303,7 +304,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         </div>
         <div class="card panel">
           <h3>Guardias armados</h3>
-          <div class="tablebox"><table style="min-width:360px">
+          <div class="tablebox"><table>
             <thead><tr><th>Servicio</th><th>Nombre</th><th>Portación</th></tr></thead>
             <tbody id="kArmBody"></tbody>
           </table></div>
@@ -437,6 +438,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
       <label class="f full">Motivo<input id="fiMotivo" type="text" placeholder="Ej. Enfermedad, asunto familiar, no se presentó"></label>
       <label class="switch full"><span><b style="display:block">¿Se cubre?</b><span class="sub" style="font-size:14px">Otro elemento cubrió el turno.</span></span><input id="fiCubre" type="checkbox"></label>
       <label class="f full" id="fiQuienBox" hidden>¿Quién cubre?<input id="fiQuien" type="text" list="dlEmp" placeholder="Escribe el nombre y elígelo de la lista" autocomplete="off"></label>
+      <label class="switch full" id="fiNocheBox" hidden><span><b style="display:block">Turno de noche</b><span class="sub" style="font-size:14px">Aparece en “Cobertura nocturna”.</span></span><input id="fiNoche" type="checkbox"></label>
       <label class="switch full"><span><b style="display:block">¿Se paga tiempo extra?</b><span class="sub" style="font-size:14px">Cuenta en “Tiempos extras”.</span></span><input id="fiTE" type="checkbox"></label>
       <label class="f full">Notas (opcional)<input id="fiNotas" type="text"></label>
     </div>
@@ -542,7 +544,7 @@ async function cargarCatalogos() {
   servicios = s.data || []; empleados = e.data || []; dispositivos = d.data || [];
   const opts = (todos) => (todos ? '<option value="">Todos los servicios</option>' : '') + servicios.map(x => `<option value="${x.id}">${esc(x.nombre)}${x.activo ? '' : ' (inactivo)'}</option>`).join('');
   const keep = (sel, html) => { const v = sel.value; sel.innerHTML = html; if ([...sel.options].some(o => o.value === v)) sel.value = v; };
-  keep($('#aServ'), opts(true)); keep($('#eServ'), opts(true)); keep($('#kServ'), opts(true)); keep($('#fiServ'), opts(false));
+  keep($('#aServ'), opts(true)); keep($('#eServ'), opts(true)); if (!cobNoche) keep($('#kServ'), opts(true)); keep($('#fiServ'), opts(false));
   $('#dlEmp').innerHTML = empleados.map(e => `<option value="${esc(etiquetaEmp(e))}">`).join('');
   keep($('#cServ'), servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join(''));
   keep($('#feServ'), '<option value="">Sin asignar</option>' + servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join(''));
@@ -552,11 +554,11 @@ const etiquetaEmp = e => e.nombre + (e.numero ? ' · No. ' + e.numero : '') + (e
 const empPorEtiqueta = t => { t = (t || '').trim(); if (!t) return null; return empleados.find(e => etiquetaEmp(e) === t) || empleados.find(e => norm(e.nombre) === norm(t)) || undefined; };
 
 /* ---------- navegación ---------- */
-const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares' };
+const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares' };
 function ir(sec) {
-  Object.entries(secs).forEach(([k, s]) => { $(s).hidden = k !== sec; });
+  Object.values(secs).forEach(s => { $(s).hidden = s !== secs[sec]; });
   $$('nav.side button.nav').forEach(b => b.setAttribute('aria-current', b.dataset.sec === sec ? 'page' : 'false'));
-  if (sec === 'cobertura') cargarCob();
+  if (sec === 'cobertura' || sec === 'coberturaNoche') modoCob(sec === 'coberturaNoche' ? 'noche' : 'dia');
   if (sec === 'nocturna') cargarNoc();
   if (sec === 'elementos') pintarElementos();
   if (sec === 'servicios') pintarServicios();
@@ -664,7 +666,7 @@ function escucharEnVivo() {
   if (canal) sb.removeChannel(canal);
   let t = null;
   canal = sb.channel('registros-vivo')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => { clearTimeout(t); t = setTimeout(() => { cargarRegistros(); if (!$('#secCobertura').hidden && $('#kFecha').value === hoyISO()) cargarCob(); if (!$('#secNocturna').hidden) cargarNoc(); }, 800); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => { clearTimeout(t); t = setTimeout(() => { cargarRegistros(); if (!$('#secCobertura').hidden && (cobNoche || $('#kFecha').value === hoyISO())) cargarCob(); if (!$('#secNocturna').hidden) cargarNoc(); }, 800); })
     .subscribe();
   setInterval(cargarRegistros, 60000);   // respaldo por si se corta la conexión en vivo
 }
@@ -970,22 +972,36 @@ $('#nPdf').onclick = async () => {
 const TIPOS_INC = ['Falta', 'Incapacidad', 'Vacaciones', 'Vacante', 'Movimiento operativo', 'Otro'];
 const dowDe = iso => (new Date(iso + 'T12:00:00Z').getUTCDay() + 6) % 7;      // Lunes = 0
 const NOM_DIA = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-let cob = null, cobCargando = false;
+let cob = null, cobCargando = false, cobNoche = false;
+function modoCob(m) {
+  const n = m === 'noche', cambio = n !== cobNoche || !$('#kFecha').value;
+  cobNoche = n;
+  $('#kTitulo').textContent = n ? 'Cobertura nocturna' : 'Cobertura';
+  $('#kFechaLbl').textContent = n ? 'Noche del día' : 'Día';
+  $('#kHoy').textContent = n ? 'Esta noche' : 'Hoy'; $('#kCompLbl').textContent = n ? 'Requeridos de noche' : 'Requeridos del día';
+  const lista = n ? serviciosNoche() : servicios, sel = $('#kServ'), v = sel.value;
+  sel.innerHTML = `<option value="">${n ? 'Todos los servicios nocturnos' : 'Todos los servicios'}</option>` + lista.map(x => `<option value="${x.id}">${esc(x.nombre)}${x.activo ? '' : ' (inactivo)'}</option>`).join('');
+  if (lista.some(x => x.id === v)) sel.value = v;
+  if (cambio) { $('#kFecha').value = n ? nocheDefault() : hoyISO(); cob = null; }
+  cargarCob();
+}
 const empDe = id => empleados.find(e => e.id === id);
 const esArmado = e => !!e && (e.portacion || /armad/i.test(e.puesto || ''));
 
 async function cargarCob() {
-  if (!$('#kFecha').value) $('#kFecha').value = hoyISO();
+  if (!$('#kFecha').value) $('#kFecha').value = cobNoche ? nocheDefault() : hoyISO();
+  if (cobNoche && !serviciosNoche().length) { kProg('Todavía no hay servicios nocturnos. Ve a Servicios → Editar y activa “Servicio con turno nocturno”.'); }
   if (cobCargando) return; cobCargando = true;
   const D = $('#kFecha').value;
   try {
     const [r, i] = await Promise.all([
-      sb.from('v_registros').select('*').gte('fecha_hora', inicioDia(D)).lt('fecha_hora', inicioDia(sumaDias(D, 1))).order('fecha_hora', { ascending: true }).limit(5000),
+      sb.from('v_registros').select('*').gte('fecha_hora', cobNoche ? horaISO(D, NOCHE_FIN) : inicioDia(D)).lt('fecha_hora', cobNoche ? horaISO(sumaDias(D, 1), 14) : inicioDia(sumaDias(D, 1))).order('fecha_hora', { ascending: true }).limit(5000),
       sb.from('incidencias').select('*').eq('fecha', D).order('creado', { ascending: true })
     ]);
     if (r.error) throw r.error;
     if (i.error) throw new Error(/incidencias/i.test(i.error.message) ? 'Falta correr el archivo sql/6_cobertura.sql en Supabase.' : i.error.message);
-    cob = calcularCob(D, r.data || [], i.data || []);
+    if (cobNoche) kProg(serviciosNoche().length ? '' : $('#kProg').textContent);
+    cob = calcularCob(D, r.data || [], (i.data || []).filter(x => !cobNoche || x.noche));
     pintarCob();
     $('#kVivo').textContent = 'Actualizado ' + fHM.format(new Date());
   } catch (e) { kProg('No se pudo cargar la cobertura: ' + e.message); }
@@ -995,8 +1011,14 @@ function kProg(t) { const p = $('#kProg'); p.hidden = !t; p.textContent = t || '
 
 function calcularCob(D, regs, incs) {
   const filtro = $('#kServ').value, dow = dowDe(D);
-  const filas = servicios.filter(s => !filtro || s.id === filtro).map(s => {
-    const req = s.activo ? (reqDe(s)[dow] || 0) : 0;
+  if (cobNoche) {   // solo entradas de la noche: 17:00 → 05:00 y turnos de 24 h que entraron ese día
+    const ini = new Date(horaISO(D, NOCHE_INI)).getTime(), fin = new Date(horaISO(sumaDias(D, 1), NOCHE_FIN)).getTime(), dia = new Date(horaISO(D, NOCHE_FIN)).getTime();
+    const vale = x => { const t = new Date(x.fecha_hora).getTime(); return (t >= ini && t < fin) || (t >= dia && t < ini && /^24/.test(x.turno || '')); };
+    const entradasOk = new Set(regs.filter(x => x.tipo === 'Entrada' && vale(x)).map(x => x.id));
+    regs = regs.filter(x => x.tipo !== 'Entrada' || entradasOk.has(x.id));
+  }
+  const filas = (cobNoche ? serviciosNoche() : servicios).filter(s => !filtro || s.id === filtro).map(s => {
+    const req = s.activo ? ((cobNoche ? reqNoche(s) : reqDe(s))[dow] || 0) : 0;
     const primeras = new Map();                       // empleado → primera entrada del día
     regs.filter(x => x.servicio_id === s.id && x.tipo === 'Entrada').forEach(x => { if (!primeras.has(x.empleado_id)) primeras.set(x.empleado_id, x); });
     const llegadas = [...primeras.values()].sort((a, b) => a.fecha_hora.localeCompare(b.fecha_hora));
@@ -1040,7 +1062,8 @@ const siNo = v => `<span class="yn ${v ? 'si' : 'no'}">${v ? 'Sí' : 'No'}</span
 function pintarCob() {
   const c = cob; if (!c) return;
   const hoy = c.D === hoyISO();
-  $('#kSub').textContent = `${NOM_DIA[dowDe(c.D)][0].toUpperCase() + NOM_DIA[dowDe(c.D)].slice(1)} ${fechaCorta(c.D)} · elementos distintos que checaron entrada contra los requeridos del día${hoy ? ' · los turnos de la noche se suman cuando chequen' : ''}`;
+  if (cobNoche) $('#kSub').textContent = `${nocheTxt(c.D)} · elementos que checaron entrada de noche contra los requeridos de noche`;
+  else $('#kSub').textContent = `${NOM_DIA[dowDe(c.D)][0].toUpperCase() + NOM_DIA[dowDe(c.D)].slice(1)} ${fechaCorta(c.D)} · elementos distintos que checaron entrada contra los requeridos del día${hoy ? ' · los turnos de la noche se suman cuando chequen' : ''}`;
   $('#kComp').textContent = c.comp; $('#kCub').textContent = c.cub; $('#kFal').textContent = c.fal; $('#kAdi').textContent = c.adi;
   $('#kCubPct').textContent = `${pctCob(c)}% de cobertura`;
   const max = Math.max(1, ...c.filas.map(f => Math.max(f.req, f.pres)));
@@ -1068,7 +1091,7 @@ function pintarCob() {
 }
 $('#kFecha').onchange = cargarCob;
 $('#kServ').onchange = cargarCob;
-$('#kHoy').onclick = () => { $('#kFecha').value = hoyISO(); cargarCob(); };
+$('#kHoy').onclick = () => { $('#kFecha').value = cobNoche ? nocheDefault() : hoyISO(); cargarCob(); };
 $('#kAnt').onclick = () => { $('#kFecha').value = sumaDias($('#kFecha').value || hoyISO(), -1); cargarCob(); };
 $('#kSig').onclick = () => { $('#kFecha').value = sumaDias($('#kFecha').value || hoyISO(), 1); cargarCob(); };
 
@@ -1082,14 +1105,17 @@ function abrirInc(i) {
   $('#fiTitulo').textContent = i ? 'Editar incidencia' : 'Registrar incidencia';
   $('#fiFecha').value = i ? i.fecha : ($('#kFecha').value || hoyISO());
   $('#fiTipo').value = i ? i.tipo : 'Falta';
-  $('#fiServ').value = i ? i.servicio_id : ($('#kServ').value || (servicios.find(s => s.activo) || {}).id || '');
+  $('#fiServ').value = i ? i.servicio_id : ($('#kServ').value || ((cobNoche ? serviciosNoche()[0] : servicios.find(s => s.activo)) || {}).id || '');
   const e = i && empDe(i.empleado_id), q = i && empDe(i.cubre_empleado_id);
   $('#fiEmp').value = e ? etiquetaEmp(e) : ''; $('#fiQuien').value = q ? etiquetaEmp(q) : '';
   $('#fiMotivo').value = i ? i.motivo || '' : ''; $('#fiNotas').value = i ? i.notas || '' : '';
   $('#fiCubre').checked = !!(i && i.se_cubre); $('#fiTE').checked = !!(i && i.paga_te);
+  $('#fiNoche').checked = i ? !!i.noche : cobNoche; fiNocheVer();
   $('#fiBorrar').hidden = !i; $('#fiMsg').hidden = true; fiQuien(); fiTipo();
   $('#dInc').showModal();
 }
+function fiNocheVer() { const s = servicios.find(x => x.id === $('#fiServ').value); $('#fiNocheBox').hidden = !(s && s.nocturno); }
+$('#fiServ').addEventListener('change', fiNocheVer);
 $('#kInc').onclick = () => abrirInc(null);
 $('#fiCancel').onclick = () => $('#dInc').close();
 $('#fInc').onsubmit = async ev => {
@@ -1102,6 +1128,7 @@ $('#fInc').onsubmit = async ev => {
   if (!emp && tipo !== 'Vacante' && tipo !== 'Otro' && tipo !== 'Movimiento operativo') { msg('Escribe el elemento (o elige “Vacante” si el puesto no tiene a nadie).'); return; }
   const fila = { fecha: $('#fiFecha').value, servicio_id: $('#fiServ').value, tipo, empleado_id: emp ? emp.id : null, motivo: $('#fiMotivo').value.trim() || null,
     se_cubre: $('#fiCubre').checked, cubre_empleado_id: quien ? quien.id : null, paga_te: $('#fiTE').checked, notas: $('#fiNotas').value.trim() || null };
+  { const sv = servicios.find(x => x.id === fila.servicio_id); const n = !!(sv && sv.nocturno && $('#fiNoche').checked); if (n || (editI && editI.noche)) fila.noche = n; }
   const btn = $('#fiGuardar'); btn.disabled = true;
   try {
     const r = editI ? await sb.from('incidencias').update(fila).eq('id', editI.id) : await sb.from('incidencias').insert(fila);
@@ -1135,10 +1162,10 @@ $('#kPdf').onclick = async () => {
     doc.text(`Generado: ${fGen.format(new Date())}`, W - M, M + 5, { align: 'right' });
     doc.setDrawColor(...navy); doc.setLineWidth(0.9); doc.line(M, M + 19, W - M, M + 19);
     doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(17); doc.setTextColor(...navy);
-    doc.text('Reporte de cobertura', M, M + 28);
+    doc.text(cobNoche ? 'Reporte de cobertura nocturna' : 'Reporte de cobertura', M, M + 28);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(...ink);
     const dia = NOM_DIA[dowDe(c.D)];
-    doc.text(`${$('#kServ').value ? nombreServ($('#kServ').value) : 'Todos los servicios'} · ${dia[0].toUpperCase() + dia.slice(1)} ${fechaCorta(c.D)}`, M, M + 34);
+    doc.text(`${$('#kServ').value ? nombreServ($('#kServ').value) : (cobNoche ? 'Servicios nocturnos' : 'Todos los servicios')} · ${cobNoche ? nocheTxt(c.D) : dia[0].toUpperCase() + dia.slice(1) + ' ' + fechaCorta(c.D)}`, M, M + 34);
     // KPIs
     const res = [['TURNOS COMPROMETIDOS', c.comp, navy], ['TURNOS CUBIERTOS', c.cub, ok], ['FALTAS', c.fal, bad], ['TURNOS ADICIONALES', c.adi, blue], ['% COBERTURA', pctCob(c) + '%', pctCob(c) >= 100 ? ok : bad]];
     const bw = (W - 2 * M - 12) / 5, by = M + 39;
@@ -1189,10 +1216,10 @@ $('#kPdf').onclick = async () => {
     for (let i = 1; i <= n; i++) {
       doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
       doc.setDrawColor(...line); doc.setLineWidth(0.2); doc.line(M, H - 10, W - M, H - 10);
-      doc.text('SISERO · Cobertura calculada con las entradas del checador contra los elementos requeridos de cada servicio.', M, H - 6);
+      doc.text(cobNoche ? `SISERO · Cobertura nocturna: entradas de ${NOCHE_INI}:00 a 0${NOCHE_FIN}:00 y turnos de 24 h, contra los requeridos de noche.` : 'SISERO · Cobertura calculada con las entradas del checador contra los elementos requeridos de cada servicio.', M, H - 6);
       doc.text(`Página ${i} de ${n}`, W - M, H - 6, { align: 'right' });
     }
-    doc.save(`SISERO_cobertura_${archivo($('#kServ').value ? nombreServ($('#kServ').value) : 'todos')}_${c.D}.pdf`);
+    doc.save(`SISERO_cobertura${cobNoche ? '_nocturna' : ''}_${archivo($('#kServ').value ? nombreServ($('#kServ').value) : 'todos')}_${c.D}.pdf`);
     kProg('');
   } catch (e) { kProg('No se pudo generar el PDF: ' + e.message); }
   finally { btn.disabled = false; }
