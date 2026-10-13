@@ -165,6 +165,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
   <nav class="side">
     <div class="brand"><img src="../assets/sisero-logo.png" alt="SISERO"><span class="eyebrow">Control de asistencia</span></div>
     <button class="nav" data-sec="asistencia" aria-current="page">Asistencia</button>
+    <button class="nav" data-sec="nocturna">Asistencia nocturna</button>
     <button class="nav" data-sec="cobertura">Cobertura</button>
     <button class="nav" data-sec="elementos">Elementos</button>
     <button class="nav" data-sec="servicios">Servicios</button>
@@ -213,6 +214,28 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
           <tbody id="aBody"><tr><td colspan="9" class="empty">Cargando registros…</td></tr></tbody>
         </table>
       </div>
+    </section>
+
+    <!-- ================= NOCTURNA ================= -->
+    <section id="secNocturna" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Asistencia nocturna</h1><div class="sub" id="nSub">Servicios con turno de noche</div></div>
+        <span class="tag mut" id="nVivo"></span>
+      </div>
+      <div class="card filters">
+        <label class="f">Noche del día<input id="nFecha" type="date"></label>
+        <div style="display:flex;gap:6px"><button class="btn sm" type="button" id="nAnt" aria-label="Noche anterior">◀</button><button class="btn sm" type="button" id="nHoy">Esta noche</button><button class="btn sm" type="button" id="nSig" aria-label="Noche siguiente">▶</button></div>
+        <label class="f" style="flex:1 1 220px">Servicio<select id="nServ"></select></label>
+        <button class="btn primary" id="nPdf" type="button">Reporte PDF con fotos</button>
+      </div>
+      <div class="progress" id="nProg" hidden></div>
+      <div class="kpis">
+        <div class="card kpi"><span>Requeridos de noche</span><b id="nReq">0</b></div>
+        <div class="card kpi" style="border-top-color:var(--ok)"><span>Presentes</span><b id="nPre" style="color:var(--ok)">0</b></div>
+        <div class="card kpi" style="border-top-color:var(--bad)"><span>Faltan</span><b id="nFal" style="color:var(--bad)">0</b></div>
+        <div class="card kpi" style="border-top-color:var(--blue)"><span>Siguen en turno</span><b id="nTur" style="color:var(--blue)">0</b></div>
+      </div>
+      <div id="nLista" style="display:flex;flex-direction:column;gap:14px"></div>
     </section>
 
     <!-- ================= COBERTURA ================= -->
@@ -388,6 +411,13 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <span class="sub" style="font-size:13px">Escribe el primero y toca “Copiar a todos”, luego ajusta los días distintos.</span>
         <button class="btn sm" type="button" id="fsCopiar" style="align-self:flex-start">Copiar a todos</button>
       </div>
+      <label class="switch full"><span><b style="display:block">Servicio con turno nocturno</b><span class="sub" style="font-size:14px">Aparece en la pestaña “Asistencia nocturna”.</span></span><input id="fsNoct" type="checkbox"></label>
+      <div class="f full" id="fsNocheBox" hidden style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:600;color:var(--muted)">Elementos requeridos de NOCHE por día</span>
+        <div class="dias" id="fsNoche">
+          <label>L<input type="number" min="0" inputmode="numeric" aria-label="Lunes noche"></label><label>M<input type="number" min="0" inputmode="numeric" aria-label="Martes noche"></label><label>Mi<input type="number" min="0" inputmode="numeric" aria-label="Miércoles noche"></label><label>J<input type="number" min="0" inputmode="numeric" aria-label="Jueves noche"></label><label>V<input type="number" min="0" inputmode="numeric" aria-label="Viernes noche"></label><label>S<input type="number" min="0" inputmode="numeric" aria-label="Sábado noche"></label><label>D<input type="number" min="0" inputmode="numeric" aria-label="Domingo noche"></label>
+        </div>
+        <button class="btn sm" type="button" id="fsCopiarN" style="align-self:flex-start">Copiar a todos</button>
+      </div>
       <label class="switch full"><span><b style="display:block">Activo</b><span class="sub" style="font-size:14px">Un servicio inactivo no aparece para asignar.</span></span><input id="fsActivo" type="checkbox" checked></label>
     </div>
     <div id="fsMsg" class="msg bad" hidden></div>
@@ -522,11 +552,12 @@ const etiquetaEmp = e => e.nombre + (e.numero ? ' · No. ' + e.numero : '') + (e
 const empPorEtiqueta = t => { t = (t || '').trim(); if (!t) return null; return empleados.find(e => etiquetaEmp(e) === t) || empleados.find(e => norm(e.nombre) === norm(t)) || undefined; };
 
 /* ---------- navegación ---------- */
-const secs = { asistencia: '#secAsistencia', cobertura: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares' };
+const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares' };
 function ir(sec) {
   Object.entries(secs).forEach(([k, s]) => { $(s).hidden = k !== sec; });
   $$('nav.side button.nav').forEach(b => b.setAttribute('aria-current', b.dataset.sec === sec ? 'page' : 'false'));
   if (sec === 'cobertura') cargarCob();
+  if (sec === 'nocturna') cargarNoc();
   if (sec === 'elementos') pintarElementos();
   if (sec === 'servicios') pintarServicios();
   if (sec === 'celulares') pintarCelulares();
@@ -633,7 +664,7 @@ function escucharEnVivo() {
   if (canal) sb.removeChannel(canal);
   let t = null;
   canal = sb.channel('registros-vivo')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => { clearTimeout(t); t = setTimeout(() => { cargarRegistros(); if (!$('#secCobertura').hidden && $('#kFecha').value === hoyISO()) cargarCob(); }, 800); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => { clearTimeout(t); t = setTimeout(() => { cargarRegistros(); if (!$('#secCobertura').hidden && $('#kFecha').value === hoyISO()) cargarCob(); if (!$('#secNocturna').hidden) cargarNoc(); }, 800); })
     .subscribe();
   setInterval(cargarRegistros, 60000);   // respaldo por si se corta la conexión en vivo
 }
@@ -773,6 +804,165 @@ $('#aPdf').onclick = async () => {
     doc.save(`SISERO_reporte_${archivo(etiquetaServ(p))}_${p.desde}_${p.hasta}.pdf`);
     progreso('');
   } catch (e) { progreso('No se pudo generar el PDF: ' + e.message); }
+  finally { btn.disabled = false; }
+};
+
+/* =================== ASISTENCIA NOCTURNA =================== */
+// La noche del día D: entradas de D 17:00 a D+1 05:00, más los turnos de 24 h que entraron el día D.
+const NOCHE_INI = 17, NOCHE_FIN = 5;
+const horaISO = (d, h) => `${d}T${String(h).padStart(2, '0')}:00:00${offset(d)}`;
+const reqNoche = s => (Array.isArray(s.requeridos_noche) && s.requeridos_noche.length === 7) ? s.requeridos_noche : reqDe(s);
+const serviciosNoche = () => servicios.filter(s => s.nocturno && s.activo);
+const DIA_CORTO = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+let noc = null, nocCargando = false;
+function nocheDefault() { const h = +new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: '2-digit', hour12: false }).format(new Date()) % 24; return h < 12 ? sumaDias(hoyISO(), -1) : hoyISO(); }
+function nProg(t) { const p = $('#nProg'); p.hidden = !t; p.textContent = t || ''; }
+function nocheTxt(D) { const D2 = sumaDias(D, 1); return `Noche del ${DIA_CORTO[dowDe(D)]} ${fechaCorta(D).slice(0, 5)} al ${DIA_CORTO[dowDe(D2)]} ${fechaCorta(D2).slice(0, 5)}`; }
+
+async function cargarNoc() {
+  if (!$('#nFecha').value) $('#nFecha').value = nocheDefault();
+  const opts = serviciosNoche();
+  const sel = $('#nServ'), v = sel.value;
+  sel.innerHTML = '<option value="">Todos los servicios nocturnos</option>' + opts.map(s => `<option value="${s.id}">${esc(s.nombre)}</option>`).join('');
+  if (opts.some(s => s.id === v)) sel.value = v;
+  if (!opts.length) {
+    noc = null; $('#nLista').innerHTML = '<div class="card empty">Todavía no hay servicios nocturnos. Ve a <b>Servicios → Editar</b> y activa <b>“Servicio con turno nocturno”</b> en cada uno (por ejemplo Merza San Ángel, Merza Cedis, Merza Pensión y CPI Lago de Guadalupe).</div>';
+    ['#nReq', '#nPre', '#nFal', '#nTur'].forEach(s => { $(s).textContent = '0'; }); return;
+  }
+  if (nocCargando) return; nocCargando = true;
+  const D = $('#nFecha').value, ids = (sel.value ? [sel.value] : opts.map(s => s.id));
+  try {
+    const { data, error } = await sb.from('v_registros').select('*').in('servicio_id', ids)
+      .gte('fecha_hora', horaISO(D, NOCHE_FIN)).lt('fecha_hora', horaISO(sumaDias(D, 1), 14)).order('fecha_hora', { ascending: true }).limit(5000);
+    if (error) throw error;
+    noc = calcularNoc(D, ids, data || []);
+    nProg(''); await pintarNoc();
+    $('#nVivo').textContent = 'Actualizado ' + fHM.format(new Date());
+  } catch (e) { nProg('No se pudo cargar la asistencia nocturna: ' + (/nocturno|requeridos_noche/.test(e.message) ? 'falta correr sql/7_nocturna.sql en Supabase.' : e.message)); }
+  finally { nocCargando = false; }
+}
+
+function calcularNoc(D, ids, regs) {
+  const ini = new Date(horaISO(D, NOCHE_INI)).getTime(), fin = new Date(horaISO(sumaDias(D, 1), NOCHE_FIN)).getTime(), dia = new Date(horaISO(D, NOCHE_FIN)).getTime();
+  const dow = dowDe(D);
+  const grupos = ids.map(id => {
+    const s = servicios.find(x => x.id === id), req = reqNoche(s)[dow] || 0;
+    const vistos = new Set(), filas = [];
+    regs.filter(r => r.servicio_id === id && r.tipo === 'Entrada').forEach(r => {
+      const t = new Date(r.fecha_hora).getTime();
+      const deNoche = t >= ini && t < fin, de24 = t >= dia && t < ini && /^24/.test(r.turno || '');
+      if (!(deNoche || de24) || vistos.has(r.empleado_id)) return;
+      vistos.add(r.empleado_id);
+      const sal = regs.find(x => x.tipo === 'Salida' && x.empleado_id === r.empleado_id && x.servicio_id === id && new Date(x.fecha_hora).getTime() > t && new Date(x.fecha_hora).getTime() - t < 30 * 3600e3);
+      filas.push({ ent: r, sal, min: sal ? Math.round((new Date(sal.fecha_hora) - t) / 60000) : null });
+    });
+    return { s, req, filas, pres: filas.length, faltan: Math.max(req - filas.length, 0) };
+  });
+  const sum = k => grupos.reduce((a, g) => a + g[k], 0);
+  return { D, grupos, req: sum('req'), pres: sum('pres'), faltan: sum('faltan'), enTurno: grupos.reduce((a, g) => a + g.filas.filter(f => !f.sal).length, 0) };
+}
+
+function obsNoc(f) {
+  const o = [], r = f.ent;
+  if (r.cubre) o.push(['warn', 'Cubre · base ' + (r.servicio_base || 'sin asignar')]);
+  if (r.fuera_zona) o.push(['warn', 'Entrada fuera de zona · ' + distTxt(r.distancia_m)]);
+  if (f.sal && f.sal.fuera_zona) o.push(['warn', 'Salida fuera de zona · ' + distTxt(f.sal.distancia_m)]);
+  if (r.diferido) o.push(['mut', 'Entrada sin señal']);
+  return o;
+}
+async function pintarNoc() {
+  const c = noc; if (!c) return;
+  $('#nSub').textContent = `${nocheTxt(c.D)} · entradas de ${NOCHE_INI}:00 a 0${NOCHE_FIN}:00 y turnos de 24 h del día`;
+  $('#nReq').textContent = c.req; $('#nPre').textContent = c.pres; $('#nFal').textContent = c.faltan; $('#nTur').textContent = c.enTurno;
+  const L = $('#nLista');
+  L.innerHTML = c.grupos.map((g, gi) => {
+    const [txt, cls] = g.req === 0 && !g.pres ? ['Sin elementos de noche', 'mut'] : g.faltan ? [`Faltan ${g.faltan}`, 'bad'] : g.pres > g.req ? [`${g.pres - g.req} de más`, 'warn'] : ['Completo', 'ok'];
+    return `<div class="card" style="overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line)">
+        <div style="min-width:0"><b style="font-size:17px">${esc(g.s.nombre)}</b><div class="sub" style="font-size:13px">${esc(g.s.cliente || '')}</div></div>
+        <div style="display:flex;align-items:baseline;gap:12px"><span class="tag ${cls}">${txt}</span><b style="font-family:var(--display);font-style:italic;font-weight:800;font-size:26px">${g.pres}<span style="font-size:16px;color:var(--muted)"> / ${g.req}</span></b></div>
+      </div>
+      <div class="tablebox"><table style="min-width:860px">
+        <thead><tr><th>Foto</th><th>Elemento</th><th>Turno</th><th>Entrada</th><th>Foto</th><th>Salida</th><th>Horas</th><th>Observaciones</th></tr></thead>
+        <tbody>${g.filas.length ? g.filas.map((f, i) => `<tr>
+          <td><button class="thumb" type="button" data-p="${esc(f.ent.foto_path || '')}">${f.ent.foto_path ? '…' : '—'}</button></td>
+          <td><b style="font-weight:600">${esc(f.ent.empleado)}</b><div class="sub" style="font-size:13px">${esc(f.ent.puesto)}</div></td>
+          <td class="mono">${esc(f.ent.turno || '—')}</td>
+          <td class="mono" style="color:var(--blue);font-weight:600">${horaTurno(f.ent.fecha_hora, c.D)}</td>
+          <td>${f.sal ? `<button class="thumb" type="button" data-p="${esc(f.sal.foto_path || '')}">${f.sal.foto_path ? '…' : '—'}</button>` : ''}</td>
+          <td>${f.sal ? `<span class="mono" style="font-weight:600">${horaTurno(f.sal.fecha_hora, c.D)}</span>` : '<span class="tag ok">En turno</span>'}</td>
+          <td class="mono">${durTxt(f.min)}</td>
+          <td>${obsNoc(f).map(([k, t]) => `<div class="tag ${k}">${esc(t)}</div>`).join('') || '<span class="tag mut">—</span>'}</td></tr>`).join('')
+        : `<tr><td colspan="8" class="empty">${g.req ? 'Nadie ha checado entrada esta noche.' : 'Este servicio no requiere elementos esta noche.'}</td></tr>`}</tbody>
+      </table></div></div>`;
+  }).join('');
+  const paths = c.grupos.flatMap(g => g.filas.flatMap(f => [f.ent.foto_path, f.sal && f.sal.foto_path]));
+  const get = await urlsFirmadas(paths);
+  $$('#nLista .thumb[data-p]').forEach(b => { const u = b.dataset.p && get(b.dataset.p); if (u) { b.innerHTML = `<img src="${u}" alt="Foto" loading="lazy">`; b.onclick = () => verFoto(u); } });
+}
+$('#nFecha').onchange = cargarNoc;
+$('#nServ').onchange = cargarNoc;
+$('#nHoy').onclick = () => { $('#nFecha').value = nocheDefault(); cargarNoc(); };
+$('#nAnt').onclick = () => { $('#nFecha').value = sumaDias($('#nFecha').value || nocheDefault(), -1); cargarNoc(); };
+$('#nSig').onclick = () => { $('#nFecha').value = sumaDias($('#nFecha').value || nocheDefault(), 1); cargarNoc(); };
+
+$('#nPdf').onclick = async () => {
+  const btn = $('#nPdf'); btn.disabled = true;
+  try {
+    await cargarNoc(); const c = noc; if (!c) return;
+    const filas = c.grupos.flatMap(g => g.filas);
+    nProg('Descargando fotos…');
+    const [fotos, L] = await Promise.all([bajarFotos(filas.flatMap(f => [f.ent.foto_path, f.sal && f.sal.foto_path]), (h, n) => nProg(`Descargando fotos ${h} de ${n}…`)), cargarLogos()]);
+    nProg('Generando PDF…');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
+    const navy = [11, 44, 85], muted = [91, 100, 112], ok = [29, 122, 74], bad = [179, 38, 30], blue = [47, 106, 163], ink = [20, 26, 34], line = [213, 219, 227];
+    const ih = 15, iw = ih * L.icm.w / L.icm.h; doc.addImage(L.ic, 'PNG', M, M, iw, ih);
+    const th = 5.2, tw = th * L.txm.w / L.txm.h; doc.addImage(L.tx, 'PNG', M + iw + 4, M + 2.5, tw, th);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+    doc.text('SEGURIDAD PRIVADA · CONTROL DE ASISTENCIA', M + iw + 4, M + 12.5);
+    doc.text(`Generado: ${fGen.format(new Date())}`, W - M, M + 5, { align: 'right' });
+    doc.setDrawColor(...navy); doc.setLineWidth(0.9); doc.line(M, M + 19, W - M, M + 19);
+    doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(17); doc.setTextColor(...navy); doc.text('Asistencia nocturna', M, M + 28);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(...ink);
+    doc.text(`${$('#nServ').value ? nombreServ($('#nServ').value) : 'Servicios nocturnos'} · ${nocheTxt(c.D)}`, M, M + 34);
+    const res = [['REQUERIDOS DE NOCHE', c.req, navy], ['PRESENTES', c.pres, ok], ['FALTAN', c.faltan, bad], ['SIGUEN EN TURNO', c.enTurno, blue]];
+    const bw = (W - 2 * M - 9) / 4, by = M + 39;
+    res.forEach(([k, v, col], i) => { const x = M + i * (bw + 3); doc.setDrawColor(...line); doc.setLineWidth(0.3); doc.roundedRect(x, by, bw, 15, 1.5, 1.5); doc.setFillColor(...col); doc.rect(x, by, bw, 1.2, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8); doc.setTextColor(...muted); doc.text(k, x + 3, by + 6); doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(14); doc.setTextColor(...col); doc.text(String(v), x + 3, by + 12.6); });
+    let y = by + 23;
+    c.grupos.forEach(g => {
+      if (y > H - 50) { doc.addPage(); y = M + 6; }
+      doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(12); doc.setTextColor(...navy); doc.text(g.s.nombre, M, y);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...(g.faltan ? bad : ok));
+      doc.text(`${g.pres} / ${g.req}${g.faltan ? ' · faltan ' + g.faltan : ' · completo'}`, W - M, y, { align: 'right' });
+      const deFila = new Map();
+      const body = g.filas.map(f => { const fila = [f.ent.empleado + '\n' + f.ent.puesto + (f.ent.cubre ? '\nCubre · base ' + (f.ent.servicio_base || 'sin asignar') : ''), f.ent.turno || '', '', horaTurno(f.ent.fecha_hora, c.D), '', f.sal ? horaTurno(f.sal.fecha_hora, c.D) : 'En turno', durTxt(f.min)]; deFila.set(fila, f); return fila; });
+      doc.autoTable({
+        startY: y + 2.5, margin: { left: M, right: M, top: 14, bottom: 14 },
+        head: [['Elemento', 'Turno', 'Foto', 'Entrada', 'Foto', 'Salida', 'Horas']],
+        body: body.length ? body : [[{ content: g.req ? 'Nadie checó entrada esta noche' : 'No requiere elementos esta noche', colSpan: 7, styles: { halign: 'center', textColor: muted, minCellHeight: 8 } }]],
+        theme: 'grid', rowPageBreak: 'avoid',
+        styles: { font: 'helvetica', fontSize: 8.6, cellPadding: 1.8, valign: 'middle', lineColor: line, lineWidth: 0.2, textColor: ink },
+        headStyles: { fillColor: navy, textColor: 255, fontStyle: 'bold' }, bodyStyles: { minCellHeight: body.length ? 24 : 8 },
+        columnStyles: { 1: { cellWidth: 18 }, 2: { cellWidth: 20 }, 3: { cellWidth: 22, fontStyle: 'bold', textColor: blue }, 4: { cellWidth: 20 }, 5: { cellWidth: 24, fontStyle: 'bold' }, 6: { cellWidth: 15, halign: 'right', fontStyle: 'bold' } },
+        didParseCell: d => { const f = d.section === 'body' && deFila.get(d.row.raw); if (f && d.column.index === 5 && !f.sal) d.cell.styles.textColor = ok; },
+        didDrawCell: d => {
+          if (d.section !== 'body' || (d.column.index !== 2 && d.column.index !== 4)) return;
+          const f = deFila.get(d.row.raw); if (!f) return; const ph = fotos.get(d.column.index === 2 ? f.ent.foto_path : f.sal && f.sal.foto_path); if (!ph) return;
+          const k = Math.min((d.cell.width - 3) / ph.w, (d.cell.height - 3) / ph.h), w = ph.w * k, h = ph.h * k;
+          doc.addImage(ph.d, 'JPEG', d.cell.x + (d.cell.width - w) / 2, d.cell.y + (d.cell.height - h) / 2, w, h);
+        }
+      });
+      y = doc.lastAutoTable.finalY + 10;
+    });
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...muted); doc.setDrawColor(...line); doc.setLineWidth(0.2); doc.line(M, H - 10, W - M, H - 10);
+      doc.text(`SISERO · Turno nocturno: entradas de ${NOCHE_INI}:00 a 0${NOCHE_FIN}:00 y turnos de 24 h del día.`, M, H - 6); doc.text(`Página ${i} de ${n}`, W - M, H - 6, { align: 'right' }); }
+    doc.save(`SISERO_nocturna_${archivo($('#nServ').value ? nombreServ($('#nServ').value) : 'servicios')}_${c.D}.pdf`);
+    nProg('');
+  } catch (e) { nProg('No se pudo generar el PDF: ' + e.message); }
   finally { btn.disabled = false; }
 };
 
@@ -1086,7 +1276,7 @@ function pintarServicios() {
     const ne = empleados.filter(e => e.activo && e.servicio_base_id === s.id).length;
     const nc = dispositivos.filter(d => d.activo && d.servicio_id === s.id).length;
     const gps = s.lat != null ? `<span class="tag ok">GPS listo · ${s.radio_m} m</span>` : '<span class="tag warn">Falta ubicación</span>';
-    return `<div class="card svc"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:17px">${esc(s.nombre)}${s.activo ? '' : ' <span class="pill off">Inactivo</span>'}</b><span class="sub" style="font-size:14px">${esc(s.cliente ? 'Cliente: ' + s.cliente : 'Sin cliente')} · ${esc(resumenDias(reqDe(s)))}${s.direccion ? ' · ' + esc(s.direccion) : ''}</span></div>
+    return `<div class="card svc"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:17px">${esc(s.nombre)}${s.activo ? '' : ' <span class="pill off">Inactivo</span>'}</b><span class="sub" style="font-size:14px">${esc(s.cliente ? 'Cliente: ' + s.cliente : 'Sin cliente')} · ${esc(resumenDias(reqDe(s)))}${s.nocturno ? ' · Noche: ' + esc(resumenDias(reqNoche(s))) : ''}${s.direccion ? ' · ' + esc(s.direccion) : ''}</span></div>
       <div class="meta"><span><b>${ne}</b> elementos</span>${nc ? `<span><b>${nc}</b> celular${nc > 1 ? 'es' : ''}</span>` : '<span class="tag warn">Sin celular</span>'}${gps}<button class="btn sm" type="button" data-id="${s.id}">Editar</button></div></div>`;
   }).join('');
   $$('#sLista button[data-id]').forEach(b => b.onclick = () => abrirServicio(servicios.find(x => x.id === b.dataset.id)));
@@ -1101,10 +1291,14 @@ function abrirServicio(s) {
   $('#fsTitulo').textContent = s ? 'Editar servicio' : 'Dar de alta servicio';
   $('#fsNombre').value = s ? s.nombre : ''; $('#fsCliente').value = s ? s.cliente || '' : ''; $('#fsDir').value = s ? s.direccion || '' : '';
   $('#fsCoord').value = coordTxt(s); $('#fsRadio').value = s ? s.radio_m : 150; diasInputs().forEach((inp, i) => { inp.value = reqDe(s)[i]; }); $('#fsActivo').checked = s ? s.activo : true;
+  $('#fsNoct').checked = !!(s && s.nocturno); nocheInputs().forEach((inp, i) => { inp.value = s ? reqNoche(s)[i] : 1; }); $('#fsNocheBox').hidden = !$('#fsNoct').checked;
   $('#fsMsg').hidden = true; mapaLink(); $('#dServ').showModal(); $('#fsNombre').focus();
 }
 $('#sNuevo').onclick = () => abrirServicio(null);
 $('#fsCancel').onclick = () => $('#dServ').close();
+const nocheInputs = () => [...document.querySelectorAll('#fsNoche input')];
+$('#fsNoct').onchange = () => { $('#fsNocheBox').hidden = !$('#fsNoct').checked; };
+$('#fsCopiarN').onclick = () => { const v = nocheInputs()[0].value; nocheInputs().forEach(i => { i.value = v; }); };
 $('#fsCopiar').onclick = () => { const v = diasInputs()[0].value; diasInputs().forEach(i => { i.value = v; }); };
 $('#fsAqui').onclick = () => {
   const m = $('#fsMsg');
@@ -1122,6 +1316,7 @@ $('#fServ').onsubmit = async ev => {
   if (ct && !c) { msg('Las coordenadas no son válidas. Ejemplo: 19.4326, -99.1332'); return; }
   const fila = { nombre, cliente: $('#fsCliente').value.trim() || null, direccion: $('#fsDir').value.trim() || null, lat: c ? c.lat : null, lng: c ? c.lng : null,
     radio_m: Math.min(5000, Math.max(20, parseInt($('#fsRadio').value, 10) || 150)), requeridos: diasValores(), elementos_turno: Math.max(...diasValores()), activo: $('#fsActivo').checked };
+  if ($('#fsNoct').checked || (editS && editS.nocturno)) { fila.nocturno = $('#fsNoct').checked; fila.requeridos_noche = $('#fsNoct').checked ? nocheInputs().map(i => Math.max(0, parseInt(i.value, 10) || 0)) : null; }
   try {
     const r = editS ? await sb.from('servicios').update(fila).eq('id', editS.id) : await sb.from('servicios').insert(fila);
     if (r.error) throw r.error;
