@@ -193,6 +193,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <label class="f">Desde<input id="aDesde" type="date"></label>
         <label class="f">Hasta<input id="aHasta" type="date"></label>
         <label class="f" style="flex:1 1 180px">Servicio<select id="aServ"><option value="">Todos los servicios</option></select></label>
+        <label class="f" style="flex:1 1 220px">Elemento<input id="aEmp" type="text" list="dlEmp" placeholder="Todos · escribe o elige un nombre" autocomplete="off"></label>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn outline" id="aExcel" type="button">Excel con fotos</button>
           <button class="btn primary" id="aPdf" type="button">Reporte PDF</button>
@@ -580,12 +581,22 @@ function aplicarRango(r) {
 $$('#aChips button').forEach(b => b.onclick = () => aplicarRango(b.dataset.r));
 ['#aDesde', '#aHasta'].forEach(s => $(s).onchange = () => { $$('#aChips button').forEach(b => b.setAttribute('aria-pressed', b.dataset.r === 'otro')); rango = 'otro'; cargarRegistros(); });
 $('#aServ').onchange = () => cargarRegistros();
+let tEmp = null; $('#aEmp').oninput = () => { clearTimeout(tEmp); tEmp = setTimeout(cargarRegistros, 350); };
+$('#aEmp').onchange = () => { clearTimeout(tEmp); cargarRegistros(); };
 
 function periodo() {
   let d = $('#aDesde').value || hoyISO(), h = $('#aHasta').value || d;
   if (h < d) [d, h] = [h, d];
-  return { desde: d, hasta: h, servicio: $('#aServ').value || null };
+  return { desde: d, hasta: h, servicio: $('#aServ').value || null, emp: $('#aEmp').value.trim() };
 }
+// Filtro por elemento: si el texto coincide con un elemento de la lista se usa su id; si no, busca por parte del nombre.
+function coincideEmp(r, emp) {
+  if (!emp) return true;
+  const e = empPorEtiqueta(emp);
+  if (e) return r.empleado_id ? r.empleado_id === e.id : norm(r.empleado) === norm(e.nombre);
+  return norm(r.empleado).includes(norm(emp));
+}
+const etiquetaFiltroEmp = p => { if (!p.emp) return ''; const e = empPorEtiqueta(p.emp); return e ? e.nombre : p.emp; };
 let cargando = false, otraVez = false;
 let entradasHoy = [];
 async function cargarCobertura() {
@@ -620,9 +631,11 @@ async function cargarRegistros() {
     const p = periodo();
     let q = sb.from('v_registros').select('*').gte('fecha_hora', inicioDia(p.desde)).lt('fecha_hora', inicioDia(sumaDias(p.hasta, 1))).order('fecha_hora', { ascending: false }).limit(3000);
     if (p.servicio) q = q.eq('servicio_id', p.servicio);
+    const eSel = p.emp ? empPorEtiqueta(p.emp) : null;
+    if (eSel) q = q.eq('empleado_id', eSel.id);
     const { data, error } = await q;
     if (error) throw error;
-    registros = data || [];
+    registros = (data || []).filter(r => coincideEmp(r, p.emp));
     await cargarCobertura();
     pintarRegistros();
     $('#aVivo').textContent = 'Actualizado ' + fHM.format(new Date());
@@ -678,7 +691,7 @@ async function datosTurnos() {
   progreso('Armando turnos…');
   const { data, error } = await sb.rpc('reporte_turnos', { p_desde: p.desde, p_hasta: p.hasta, p_servicio: p.servicio });
   if (error) throw error;
-  const turnos = data || [];
+  const turnos = (data || []).filter(t => coincideEmp(t, p.emp));
   const fotos = await bajarFotos(turnos.flatMap(t => [t.entrada_foto, t.salida_foto]), (h, n) => progreso(`Descargando fotos ${h} de ${n}…`));
   return { p, turnos, fotos };
 }
@@ -691,7 +704,7 @@ function obsTurno(t) {
   return o.join(' · ');
 }
 function horaTurno(ts, ref) { if (!ts) return ''; const d = new Date(ts); const dia = fDiaISO.format(d); return fHM.format(d) + (ref && dia !== ref ? ` (${fechaCorta(dia).slice(0, 5)})` : ''); }
-const etiquetaServ = p => p.servicio ? nombreServ(p.servicio) : 'Todos los servicios';
+const etiquetaServ = p => (p.servicio ? nombreServ(p.servicio) : 'Todos los servicios') + (p.emp ? ' · ' + etiquetaFiltroEmp(p) : '');
 
 $('#aExcel').onclick = async () => {
   const btn = $('#aExcel'); btn.disabled = true;
