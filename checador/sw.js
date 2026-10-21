@@ -1,5 +1,6 @@
 // Guarda la app en el celular para que abra aunque no haya señal.
-const CACHE = 'sisero-checador-v3';
+const CACHE = 'sisero-checador-v4';
+const ESPERA_MS = 4000; // si la red no responde en 4 s, se usa lo guardado
 const ARCHIVOS = [
   './', './index.html', './manifest.webmanifest', '../config.js',
   '../assets/sisero-icono.png', '../assets/sisero-texto.png', '../assets/sisero-texto-blanco.png',
@@ -18,13 +19,21 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.hostname.endsWith('supabase.co')) return;            // los datos siempre van directo al servidor
-  // Primero la red (para recibir actualizaciones); sin señal, lo guardado.
-  e.respondWith(
-    fetch(req).then(res => {
+  // Primero la red, pero con límite de espera: si tarda, se abre al instante con lo guardado
+  // y la red sigue en segundo plano para actualizar la copia.
+  e.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    const guardado = await cache.match(req, { ignoreSearch: true });
+    const red = fetch(req).then(res => {
       if (res.ok && (url.origin === location.origin || url.hostname.includes('jsdelivr') || url.hostname.includes('fonts.g'))) {
-        const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia));
+        cache.put(req, res.clone());
       }
       return res;
-    }).catch(() => caches.match(req, { ignoreSearch: true }))
-  );
+    });
+    e.waitUntil(red.catch(() => {}));
+    if (!guardado) return red;
+    const limite = new Promise(r => setTimeout(() => r(null), ESPERA_MS));
+    try { return (await Promise.race([red, limite])) || guardado; }
+    catch (err) { return guardado; }
+  })());
 });

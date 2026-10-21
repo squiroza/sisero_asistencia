@@ -631,14 +631,18 @@ $('#fLogin').onsubmit = async e => {
 $('#ssRetry').onclick = () => iniciar();
 $('#ssSalir').onclick = async () => { await sb.auth.signOut(); store.set('sisero_info', null); ver('vLogin'); };
 
+const conLimite = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
 async function iniciar() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { ver('vLogin'); return; }
-  $('#bEmail').textContent = session.user.email;
-  if (navigator.onLine) {
-    try { await cargarInfo(); } catch (e) { /* sin red: usamos lo guardado */ }
+  let session = null, lento = false;
+  try { ({ data: { session } } = await conLimite(sb.auth.getSession(), 8000)); } catch (e) { lento = true; }
+  if (!session && !lento) { ver('vLogin'); return; }
+  if (!session && lento && !info) { ver('vLogin'); return; }   // sin red y sin nada guardado
+  if (session) $('#bEmail').textContent = session.user.email;
+  if (navigator.onLine && !lento) {
+    try { await conLimite(cargarInfo(), 8000); } catch (e) { /* red lenta o sin red: usamos lo guardado */ }
   }
-  if (!info) { $('#ssEmail').textContent = session.user.email; ver('vSinServicio'); return; }
+  if (!info) { $('#ssEmail').textContent = session ? session.user.email : ''; ver('vSinServicio'); return; }
   $('#bServicio').textContent = info.servicio;
   ver('vBuscar'); pintarLista(); estadoRed(); pintarPendientes();
   cargarElementos(); vaciarCola();
