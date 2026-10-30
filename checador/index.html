@@ -106,6 +106,10 @@ h2{font-family:var(--display);font-style:italic;font-weight:800;font-size:23px;m
 .login{padding:calc(env(safe-area-inset-top,0px) + 48px) 24px 32px;display:flex;flex-direction:column;gap:18px}
 .login img.big{width:150px;align-self:center}
 label.f{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;color:var(--muted)}
+label.f select{height:52px;border-radius:10px;border:1px solid #c8d0da;background:#fff;padding:0 12px;font-size:17px;color:var(--ink)}
+.chk{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted)}
+.chk input{width:22px;height:22px}
+.salirbtn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:999px;border:1px solid #c8d0da;background:var(--surface);color:var(--bad);font-weight:700;font-size:14px}
 label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background:#fff;padding:0 14px;font-size:17px;color:var(--ink)}
 .link{background:none;border:0;color:var(--blue);font-weight:600;padding:8px;font-size:15px}
 .empty{text-align:center;color:var(--muted);padding:28px 10px}
@@ -147,13 +151,17 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
     <img class="big" src="../assets/sisero-logo.png" alt="SISERO">
     <div style="text-align:center"><div class="eyebrow">Registro de asistencia</div></div>
     <form id="fLogin" style="display:flex;flex-direction:column;gap:14px" novalidate>
-      <label class="f">Correo del celular<input id="lEmail" type="email" autocomplete="username" inputmode="email" required></label>
+      <label class="f">Correo del celular
+        <select id="lEmail" required><option value="">— Selecciona el correo —</option></select>
+      </label>
+      <label class="f" id="lOtroBox" hidden>Escribe el correo<input id="lEmailOtro" type="email" autocomplete="username" inputmode="email"></label>
       <label class="f">Contraseña<input id="lPass" type="password" autocomplete="current-password" required></label>
+      <label class="chk"><input id="lRecordar" type="checkbox"> Recordar contraseña en este celular</label>
       <div id="lMsg" class="note bad" hidden></div>
       <button class="cta" id="lBtn" type="submit">Entrar</button>
       <button class="link" id="lAlta" type="button">Primera vez en este celular: crear acceso</button>
     </form>
-    <p class="hint" style="text-align:center">Este acceso se hace una sola vez. Después el celular queda listo para checar.</p>
+    <p class="hint" style="text-align:center">Elige el correo del servicio. Al terminar de checar, toca “Salir” para cambiar de correo.</p>
   </section>
 
   <!-- Celular sin servicio -->
@@ -168,7 +176,7 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
   <section id="vBuscar" hidden style="display:flex;flex-direction:column">
     <div class="brandbar">
       <div class="logo"><img src="../assets/sisero-icono.png" alt=""><img src="../assets/sisero-texto.png" alt="SISERO"></div>
-      <span class="eyebrow">Asistencia</span>
+      <button class="salirbtn" id="bSalir" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg>Salir</button>
     </div>
     <div class="band">
       <div class="row">
@@ -282,7 +290,8 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'x' + Date.now().t
 
 let info = store.get('sisero_info', null);       // servicio del celular
 let elementos = store.get('sisero_elementos', []);
-const TURNOS = ['12x12 D', '12x12 N', '24x24', '12x24', '12x36'];
+const TURNOS = ['12x12 D', '12x12 N', '24x24 A', '24x24 B', '24x24', '12x24', '12x36'];
+const TURNOS_FIJOS = ['24x24 A', '24x24 B', '24x24', '12x24', '12x36']; // si el elemento tiene uno de estos, se propone ese (no el 12x12 por hora)
 let turno = null;
 let sel = null, tipo = 'Entrada', foto = null, gps = null, enviando = false, cuentaTimer = null;
 const fotosAlta = new Map();
@@ -374,7 +383,7 @@ function setTipo(t) {
 }
 const fHoraNum = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hour12: false });
 function turnoSugerido(e) {
-  if (e && ['24x24', '12x24', '12x36'].includes(e.turno)) return e.turno;
+  if (e && TURNOS_FIJOS.includes(e.turno)) return e.turno;
   const h = parseInt(fHoraNum.format(new Date()), 10) % 24;
   return h >= 5 && h <= 16 ? '12x12 D' : '12x12 N';
 }
@@ -605,13 +614,40 @@ setInterval(vaciarCola, 15000);
 setInterval(cargarElementos, 120000);
 
 /* ---------- sesión ---------- */
+// Lista de correos de los celulares. Agrega aquí uno por servicio.
+const CORREOS = [
+  'merzabodega@gmail.com',
+  // 'otro.servicio@gmail.com',
+];
+const OTRO = '__otro';
+const selEmail = $('#lEmail');
+// La lista junta los correos fijos de arriba + los que ya entraron en este celular (se agregan solos).
+const todosCorreos = () => [...new Set([...CORREOS, ...store.get('sisero_correos', [])].map(c => c.toLowerCase()))].sort();
+function llenarLista() {
+  selEmail.innerHTML = '<option value="">— Selecciona el correo —</option>';
+  todosCorreos().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; selEmail.appendChild(o); });
+  const o = document.createElement('option'); o.value = OTRO; o.textContent = 'Otro correo…'; selEmail.appendChild(o);
+}
+llenarLista();
+const claves = { get: () => store.get('sisero_claves', {}), set: v => store.set('sisero_claves', v) };
+function correoElegido() { return (selEmail.value === OTRO ? $('#lEmailOtro').value : selEmail.value).trim().toLowerCase(); }
+selEmail.onchange = () => {
+  $('#lOtroBox').hidden = selEmail.value !== OTRO;
+  const guardada = claves.get()[correoElegido()];
+  $('#lPass').value = guardada || ''; $('#lRecordar').checked = !!guardada;
+  $('#lMsg').hidden = true;
+};
+$('#lEmailOtro').oninput = () => { const g = claves.get()[correoElegido()]; if (g) { $('#lPass').value = g; $('#lRecordar').checked = true; } };
+// Si este celular ya usó un correo, lo deja preseleccionado
+{ const ult = store.get('sisero_ultimo_correo', ''); if (ult && todosCorreos().includes(ult)) { selEmail.value = ult; selEmail.onchange(); } }
+
 let modoAlta = false;
 $('#lAlta').onclick = () => { modoAlta = !modoAlta; $('#lBtn').textContent = modoAlta ? 'Crear acceso' : 'Entrar'; $('#lAlta').textContent = modoAlta ? 'Ya tengo acceso: entrar' : 'Primera vez en este celular: crear acceso'; $('#lPass').autocomplete = modoAlta ? 'new-password' : 'current-password'; $('#lMsg').hidden = true; };
 $('#fLogin').onsubmit = async e => {
   e.preventDefault();
-  const email = $('#lEmail').value.trim().toLowerCase(), password = $('#lPass').value;
+  const email = correoElegido(), password = $('#lPass').value;
   const msg = t => { $('#lMsg').hidden = false; $('#lMsg').className = 'note bad'; $('#lMsg').textContent = t; };
-  if (!email || password.length < 6) { msg('Escribe el correo y una contraseña de al menos 6 caracteres.'); return; }
+  if (!email || password.length < 6) { msg('Elige el correo y escribe una contraseña de al menos 6 caracteres.'); return; }
   $('#lBtn').disabled = true;
   try {
     if (modoAlta) {
@@ -622,6 +658,9 @@ $('#fLogin').onsubmit = async e => {
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
     }
+    store.set('sisero_ultimo_correo', email);
+    store.set('sisero_correos', [...new Set([...store.get('sisero_correos', []), email])]);
+    { const c = claves.get(); if ($('#lRecordar').checked) c[email] = password; else delete c[email]; claves.set(c); }
     await iniciar();
   } catch (err) {
     const m = err.message || '';
@@ -629,7 +668,22 @@ $('#fLogin').onsubmit = async e => {
   } finally { $('#lBtn').disabled = false; }
 };
 $('#ssRetry').onclick = () => iniciar();
-$('#ssSalir').onclick = async () => { await sb.auth.signOut(); store.set('sisero_info', null); ver('vLogin'); };
+async function salirSesion() {
+  // Los registros sin subir pertenecen a este servicio; si se cambia de correo antes de subirlos, quedarían en otro servicio.
+  if (navigator.onLine) await vaciarCola();
+  let n = 0; try { n = (await colaTodos()).length; } catch (e) {}
+  if (n) { alert(`Hay ${n} registro${n === 1 ? '' : 's'} sin subir. Conecta el celular a internet y espera a que se suban antes de salir.`); return; }
+  try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
+  info = null; elementos = []; sel = null; foto = null;
+  store.set('sisero_info', null); store.set('sisero_elementos', []);
+  $('#q').value = ''; $('#lista').innerHTML = ''; $('#bEmail').textContent = '';
+  modoAlta = false; $('#lBtn').textContent = 'Entrar'; $('#lAlta').textContent = 'Primera vez en este celular: crear acceso';
+  $('#lMsg').hidden = true; $('#lPass').value = ''; $('#lRecordar').checked = false;
+  llenarLista(); selEmail.value = ''; $('#lOtroBox').hidden = true; $('#lEmailOtro').value = '';
+  ver('vLogin');
+}
+$('#ssSalir').onclick = salirSesion;
+$('#bSalir').onclick = () => { if (confirm('¿Salir de este correo para elegir otro?')) salirSesion(); };
 
 const conLimite = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 

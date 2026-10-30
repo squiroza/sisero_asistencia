@@ -1,5 +1,5 @@
 // Guarda la app en el celular para que abra aunque no haya señal.
-const CACHE = 'sisero-checador-v4';
+const CACHE = 'sisero-checador-v6';
 const ESPERA_MS = 4000; // si la red no responde en 4 s, se usa lo guardado
 const ARCHIVOS = [
   './', './index.html', './manifest.webmanifest', '../config.js',
