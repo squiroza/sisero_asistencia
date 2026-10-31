@@ -77,6 +77,11 @@ tr:last-child td{border-bottom:0}
 .pill.on{background:var(--ok-bg);color:var(--ok)} .pill.off{background:#ececec;color:var(--muted)}
 .tag{font-size:12.5px;font-weight:600}
 .tag.warn{color:var(--warn)} .tag.ok{color:var(--ok)} .tag.bad{color:var(--bad)} .tag.mut{color:var(--muted)}
+th[data-ord]{cursor:pointer;-webkit-user-select:none;user-select:none;white-space:nowrap}
+th[data-ord]:hover{color:var(--navy)}
+th[data-ord][aria-sort=ascending]::after{content:' ▲';font-size:10px}
+th[data-ord][aria-sort=descending]::after{content:' ▼';font-size:10px}
+td[data-borrar],td[data-bn]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .thumb{width:44px;height:52px;border-radius:6px;background:#dfe7f1;display:grid;place-items:center;overflow:hidden;border:0;padding:0;color:var(--navy);font-size:10px;font-weight:600}
 .thumb img{width:100%;height:100%;object-fit:cover}
 .av{width:40px;height:40px;border-radius:50%;background:#dfe7f1;color:var(--navy);display:grid;place-items:center;font-weight:700;font-size:14px;flex:none;overflow:hidden}
@@ -168,9 +173,11 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <button class="nav" data-sec="nocturna">Asistencia nocturna</button>
     <button class="nav" data-sec="cobertura">Cobertura</button>
     <button class="nav" data-sec="coberturaNoche">Cobertura nocturna</button>
+    <button class="nav" data-sec="fuerza">Estado de fuerza</button>
     <button class="nav" data-sec="elementos">Elementos</button>
     <button class="nav" data-sec="servicios">Servicios</button>
     <button class="nav" data-sec="celulares">Celulares</button>
+    <button class="nav" data-sec="borrados">Borrados</button>
     <div class="who"><span id="whoEmail"></span><button class="btn sm outline" id="instalar" type="button" hidden>Instalar app</button><button class="btn sm" id="salir" type="button">Salir</button></div>
   </nav>
 
@@ -214,6 +221,58 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <table style="min-width:980px">
           <thead><tr><th>Foto</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Turno</th><th>Elemento</th><th>Puesto</th><th>Servicio</th><th>Ubicación</th></tr></thead>
           <tbody id="aBody"><tr><td colspan="9" class="empty">Cargando registros…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= ESTADO DE FUERZA ================= -->
+    <section id="secFuerza" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Estado de fuerza</h1><div class="sub" id="efSub">Quién le toca checar y quién falta</div></div>
+        <span class="tag mut" id="efVivo"></span>
+      </div>
+      <div class="card filters">
+        <label class="f">Día<input id="efFecha" type="date"></label>
+        <div style="display:flex;gap:6px"><button class="btn sm" type="button" id="efAnt" aria-label="Día anterior">◀</button><button class="btn sm" type="button" id="efHoy">Hoy</button><button class="btn sm" type="button" id="efSig" aria-label="Día siguiente">▶</button></div>
+        <label class="f">Grupo que trabaja ese día<select id="efGrupo"><option value="A">Grupo A</option><option value="B">Grupo B</option></select></label>
+        <label class="f" style="flex:1 1 200px">Servicio<select id="efServ"><option value="">Todos los servicios</option></select></label>
+        <button class="btn outline" id="efCopiar" type="button">Copiar faltantes</button>
+      </div>
+      <div class="progress" id="efProg" hidden></div>
+      <div class="kpis">
+        <div class="card kpi"><span>Esperados</span><b id="efEsp">0</b></div>
+        <div class="card kpi" style="border-top-color:var(--ok)"><span>Ya checaron</span><b id="efPre" style="color:var(--ok)">0</b></div>
+        <div class="card kpi" style="border-top-color:var(--bad)"><span>Faltan de checar</span><b id="efFal" style="color:var(--bad)">0</b></div>
+        <div class="card kpi" style="border-top-color:var(--warn)"><span>Con incidencia</span><b id="efInc" style="color:var(--warn)">0</b></div>
+      </div>
+      <div class="card tablebox">
+        <table style="min-width:760px">
+          <thead><tr><th>Elemento</th><th>Puesto</th><th>Servicio base</th><th>Estatus</th></tr></thead>
+          <tbody id="efBody"><tr><td colspan="4" class="empty">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="card tablebox" id="efOtrosBox" hidden>
+        <table style="min-width:760px">
+          <thead><tr><th colspan="4">Checaron ese día sin ser del grupo</th></tr></thead>
+          <tbody id="efOtros"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= BORRADOS ================= -->
+    <section id="secBorrados" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Registros borrados</h1><div class="sub">Copia de lo que se borró de Asistencia · puedes restaurarlo</div></div>
+        <span class="tag mut" id="bVivo"></span>
+      </div>
+      <div class="card filters">
+        <label class="f">Borrados en<select id="bDias"><option value="1">Últimas 24 horas</option><option value="7" selected>Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="365">Último año</option></select></label>
+        <button class="btn outline" id="bRecargar" type="button">Actualizar</button>
+      </div>
+      <div class="card tablebox">
+        <table style="min-width:980px">
+          <thead><tr><th>Foto</th><th>Registro</th><th>Tipo</th><th>Turno</th><th>Elemento</th><th>Servicio</th><th>Borrado</th><th></th></tr></thead>
+          <tbody id="bBody"><tr><td colspan="8" class="empty">Cargando…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -322,11 +381,13 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
       <div style="display:flex;flex-wrap:wrap;gap:12px">
         <label class="f" style="flex:2 1 260px"><span class="sr" hidden>Buscar</span><input id="eQ" type="search" placeholder="Buscar por nombre o número"></label>
         <label class="f" style="flex:1 1 200px"><select id="eServ"><option value="">Todos los servicios</option></select></label>
+        <label class="f" style="flex:1 1 170px"><select id="ePuesto"><option value="">Todos los puestos</option></select></label>
+        <label class="f" style="flex:1 1 150px"><select id="eTurno"><option value="">Todos los turnos</option><option>24x24 A</option><option>24x24 B</option><option>24x24</option><option>12x12 D</option><option>12x12 N</option><option>12x24</option><option>12x36</option><option value="__sin">Sin turno fijo</option></select></label>
         <label class="f" style="flex:0 1 170px"><select id="eEst"><option value="1">Solo activos</option><option value="">Activos y bajas</option></select></label>
       </div>
       <div class="card tablebox">
         <table style="min-width:760px">
-          <thead><tr><th>Elemento</th><th>No.</th><th>Puesto</th><th>Servicio base</th><th>Turno</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead>
+          <thead id="eHead"><tr><th data-ord="nombre">Elemento</th><th data-ord="numero">No.</th><th data-ord="puesto">Puesto</th><th data-ord="servicio">Servicio base</th><th data-ord="turno">Turno</th><th data-ord="telefono">Teléfono</th><th data-ord="estado">Estado</th><th></th></tr></thead>
           <tbody id="eBody"></tbody>
         </table>
       </div>
@@ -380,7 +441,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <label class="f">Teléfono<input id="feTel" type="tel"></label>
         <label class="f">Puesto<input id="fePuesto" type="text" list="dlPuestos" required></label>
         <label class="f">Servicio base<select id="feServ"></select></label>
-        <label class="f">Turno<select id="feTurno"><option value="">Sin turno fijo (12x12 por hora)</option><option>12x12 D</option><option>12x12 N</option><option>24x24</option><option>12x24</option><option>12x36</option></select></label>
+        <label class="f">Turno<select id="feTurno"><option value="">Sin turno fijo (12x12 por hora)</option><option>12x12 D</option><option>12x12 N</option><option>24x24 A</option><option>24x24 B</option><option>24x24</option><option>12x24</option><option>12x36</option></select></label>
         <label class="switch full"><span><b style="display:block">Portación de arma</b><span class="sub" style="font-size:14px">Aparece en “Guardias armados” del reporte de cobertura.</span></span><input id="fePort" type="checkbox"></label>
         <label class="switch full"><span><b style="display:block">Activo</b><span class="sub" style="font-size:14px">Si lo das de baja, deja de aparecer en el checador. Su historial se conserva.</span></span><input id="feActivo" type="checkbox" checked></label>
       </div>
@@ -555,7 +616,7 @@ const etiquetaEmp = e => e.nombre + (e.numero ? ' · No. ' + e.numero : '') + (e
 const empPorEtiqueta = t => { t = (t || '').trim(); if (!t) return null; return empleados.find(e => etiquetaEmp(e) === t) || empleados.find(e => norm(e.nombre) === norm(t)) || undefined; };
 
 /* ---------- navegación ---------- */
-const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares' };
+const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares', borrados: '#secBorrados', fuerza: '#secFuerza' };
 function ir(sec) {
   Object.values(secs).forEach(s => { $(s).hidden = s !== secs[sec]; });
   $$('nav.side button.nav').forEach(b => b.setAttribute('aria-current', b.dataset.sec === sec ? 'page' : 'false'));
@@ -564,6 +625,8 @@ function ir(sec) {
   if (sec === 'elementos') pintarElementos();
   if (sec === 'servicios') pintarServicios();
   if (sec === 'celulares') pintarCelulares();
+  if (sec === 'borrados') cargarBorrados();
+  if (sec === 'fuerza') iniciarFuerza();
   try { history.replaceState(null, '', '#' + sec); } catch (e) {}
 }
 $$('nav.side button.nav').forEach(b => b.onclick = () => ir(b.dataset.sec));
@@ -661,7 +724,7 @@ async function pintarRegistros() {
     return `<tr>
       <td><button class="thumb" type="button" data-i="${i}">${r.foto_path ? '…' : '—'}</button></td>
       <td class="mono">${fFecha.format(d)}</td>
-      <td class="mono">${fHora.format(d)}${r.diferido ? '<div class="tag warn" style="font-family:var(--body)">Sin señal</div>' : ''}</td>
+      <td class="mono" data-borrar="${i}">${fHora.format(d)}${r.diferido ? '<div class="tag warn" style="font-family:var(--body)">Sin señal</div>' : ''}</td>
       <td><span class="pill ${r.tipo}">${r.tipo}</span></td>
       <td class="mono">${esc(r.turno || '—')}</td>
       <td><b style="font-weight:600">${esc(r.empleado)}</b>${r.cubre ? `<div class="tag warn">Cubre · base ${esc(r.servicio_base || 'sin asignar')}</div>` : ''}</td>
@@ -669,19 +732,176 @@ async function pintarRegistros() {
       <td>${esc(r.servicio)}</td>
       <td>${ub}</td></tr>`;
   }).join('') + (registros.length > 500 ? `<tr><td colspan="9" class="empty">Se muestran los 500 más recientes de ${registros.length}. Los reportes incluyen todos.</td></tr>` : '');
+  $$('#aBody td[data-borrar]').forEach(td => armarBorrado(td, vis[+td.dataset.borrar]));
   const get = await urlsFirmadas(vis.map(r => r.foto_path));
   $$('#aBody .thumb').forEach(b => {
     const r = vis[+b.dataset.i]; const u = r && get(r.foto_path);
     if (u) { b.innerHTML = `<img src="${u}" alt="Foto de ${esc(r.empleado)}" loading="lazy">`; b.onclick = () => verFoto(u); }
   });
 }
+/* ---------- borrado discreto de un registro ----------
+   Sin botón visible: mantener presionada la HORA del registro ~1.2 s (o doble clic en computadora).
+   Funciona en Asistencia y en Asistencia nocturna (hora de Entrada o de Salida). */
+function armarBorrado(td, r) {
+  if (!r) return;
+  let t = null;
+  const parar = () => { clearTimeout(t); t = null; };
+  td.addEventListener('pointerdown', () => { parar(); t = setTimeout(() => { t = null; borrarRegistro(r); }, 1200); });
+  ['pointerup', 'pointerleave', 'pointercancel', 'pointermove'].forEach(ev => td.addEventListener(ev, parar));
+  td.addEventListener('contextmenu', e => e.preventDefault());
+  td.addEventListener('dblclick', () => { parar(); borrarRegistro(r); });
+}
+async function borrarRegistro(r) {
+  const d = new Date(r.fecha_hora);
+  if (!confirm(`¿BORRAR este registro de la base de datos?\n\n${r.tipo} · ${r.empleado}\n${r.servicio}\n${fFecha.format(d)} ${fHora.format(d)}\n\nDesaparece de la lista, los reportes y la cobertura.`)) return;
+  const { error } = await sb.rpc('borrar_registro', { p_id: String(r.id) });
+  if (error) {
+    const m = error.message || '';
+    alert('No se pudo borrar: ' + (/NO_ADMIN/.test(m) ? 'esta cuenta no es administrador.' : /REGISTRO_NO_ENCONTRADO/.test(m) ? 'el registro ya no existe.' : /borrar_registro|schema cache/i.test(m) ? 'falta correr sql/8_borrar_registro.sql en Supabase.' : m));
+    return;
+  }
+  await cargarRegistros();
+  if (!$('#secNocturna').hidden) cargarNoc();
+  if (!$('#secCobertura').hidden) cargarCob();
+}
+/* =================== ESTADO DE FUERZA (grupos 24x24 A / B) =================== */
+// El grupo que trabaja se alterna cada día. Se guarda un día de referencia en este navegador:
+// al elegir "Grupo que trabaja ese día", el sistema calcula solo los demás días.
+const GRUPO_KEY = 'sisero_grupo_ancla';
+const grupoDe = t => { const m = /^24\s*x\s*24\s*([AB])$/i.exec((t || '').trim()); return m ? m[1].toUpperCase() : null; };
+const diasEntre = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5);
+function grupoDelDia(D) {
+  let a = null; try { a = JSON.parse(localStorage.getItem(GRUPO_KEY) || 'null'); } catch (e) {}
+  if (!a || !a.fecha || !a.grupo) return null;
+  const par = diasEntre(a.fecha, D) % 2 === 0;
+  return par ? a.grupo : (a.grupo === 'A' ? 'B' : 'A');
+}
+let efFaltantes = [], efCargando = false, efListo = false;
+function iniciarFuerza() {
+  const sel = $('#efServ'), v = sel.value;
+  sel.innerHTML = '<option value="">Todos los servicios</option>' + servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+  if ([...sel.options].some(o => o.value === v)) sel.value = v;
+  if (!$('#efFecha').value) $('#efFecha').value = hoyISO();
+  efListo = true; ponerGrupo(); cargarFuerza();
+}
+function ponerGrupo() { const g = grupoDelDia($('#efFecha').value); if (g) $('#efGrupo').value = g; }
+$('#efFecha').onchange = () => { ponerGrupo(); cargarFuerza(); };
+$('#efAnt').onclick = () => { $('#efFecha').value = sumaDias($('#efFecha').value || hoyISO(), -1); ponerGrupo(); cargarFuerza(); };
+$('#efSig').onclick = () => { $('#efFecha').value = sumaDias($('#efFecha').value || hoyISO(), 1); ponerGrupo(); cargarFuerza(); };
+$('#efHoy').onclick = () => { $('#efFecha').value = hoyISO(); ponerGrupo(); cargarFuerza(); };
+$('#efServ').onchange = () => cargarFuerza();
+$('#efGrupo').onchange = () => {
+  localStorage.setItem(GRUPO_KEY, JSON.stringify({ fecha: $('#efFecha').value || hoyISO(), grupo: $('#efGrupo').value }));
+  cargarFuerza();
+};
+$('#efCopiar').onclick = async () => {
+  const D = $('#efFecha').value, g = $('#efGrupo').value;
+  const txt = efFaltantes.length ? `Faltan de checar · Grupo ${g} · ${fechaCorta(D)}\n` + efFaltantes.map(x => `- ${x.nombre} (${x.servicio || 'sin servicio'})`).join('\n') : `Grupo ${g} · ${fechaCorta(D)}: todos checaron.`;
+  try { await navigator.clipboard.writeText(txt); $('#efVivo').textContent = 'Copiado'; } catch (e) { prompt('Copia el texto:', txt); }
+};
+
+async function cargarFuerza() {
+  if (!efListo || efCargando) return; efCargando = true;
+  const D = $('#efFecha').value || hoyISO(), g = $('#efGrupo').value, filtro = $('#efServ').value;
+  const prog = t => { const p = $('#efProg'); p.hidden = !t; p.textContent = t || ''; };
+  try {
+    const [r, i] = await Promise.all([
+      sb.from('v_registros').select('*').gte('fecha_hora', inicioDia(D)).lt('fecha_hora', inicioDia(sumaDias(D, 1))).order('fecha_hora', { ascending: true }).limit(5000),
+      sb.from('incidencias').select('*').eq('fecha', D)
+    ]);
+    if (r.error) throw r.error;
+    const regs = r.data || [], incs = i.error ? [] : (i.data || []);
+    const esperados = empleados.filter(e => e.activo && grupoDe(e.turno) === g && (!filtro || e.servicio_base_id === filtro));
+    const ids = new Set(esperados.map(e => e.id));
+    const ultima = new Map(), primera = new Map();
+    regs.forEach(x => { ultima.set(x.empleado_id, x); if (x.tipo === 'Entrada' && !primera.has(x.empleado_id)) primera.set(x.empleado_id, x); });
+    const filas = esperados.map(e => {
+      const en = primera.get(e.id), u = ultima.get(e.id), inc = incs.find(x => x.empleado_id === e.id);
+      let est, clase, orden;
+      if (en) {
+        const otro = en.servicio_id !== e.servicio_base_id ? ` · en ${en.servicio}` : '';
+        if (u && u.tipo === 'Salida') { est = `Salió ${fHM.format(new Date(u.fecha_hora))}${otro}`; clase = 'mut'; orden = 3; }
+        else { est = `En turno desde ${fHM.format(new Date(en.fecha_hora))}${otro}`; clase = 'ok'; orden = 2; }
+      } else if (inc) { est = `${inc.tipo}`; clase = 'warn'; orden = 4; }
+      else { est = 'Sin checar'; clase = 'bad'; orden = 1; }
+      return { e, est, clase, orden, presente: !!en, inc: !en && !!inc };
+    }).sort((a, b) => a.orden - b.orden || a.e.nombre.localeCompare(b.e.nombre));
+    efFaltantes = filas.filter(f => f.orden === 1).map(f => ({ nombre: f.e.nombre, servicio: nombreServ(f.e.servicio_base_id) }));
+    const pre = filas.filter(f => f.presente).length, inc = filas.filter(f => f.inc).length;
+    $('#efEsp').textContent = filas.length; $('#efPre').textContent = pre; $('#efFal').textContent = efFaltantes.length; $('#efInc').textContent = inc;
+    const sinGrupo = !grupoDelDia(D);
+    $('#efSub').textContent = `${fechaCorta(D)} · Grupo ${g} (24x24 ${g})` + (sinGrupo ? ' · elige arriba qué grupo trabaja este día y el sistema alterna solo' : '');
+    $('#efBody').innerHTML = filas.length ? filas.map(f => `<tr><td><b style="font-weight:600">${esc(f.e.nombre)}</b>${f.e.numero ? ` <span class="mono sub" style="font-size:13px">#${esc(f.e.numero)}</span>` : ''}</td><td>${esc(f.e.puesto)}</td><td>${esc(nombreServ(f.e.servicio_base_id) || 'Sin asignar')}</td><td><span class="tag ${f.clase}">${esc(f.est)}</span></td></tr>`).join('')
+      : `<tr><td colspan="4" class="empty">No hay elementos activos con turno “24x24 ${g}”. Ve a Elementos → Editar y elige el turno “24x24 ${g}”.</td></tr>`;
+    const otros = [...primera.values()].filter(x => !ids.has(x.empleado_id) && (!filtro || x.servicio_id === filtro));
+    $('#efOtrosBox').hidden = !otros.length;
+    $('#efOtros').innerHTML = otros.map(x => { const e = empDe(x.empleado_id); const gr = e ? grupoDe(e.turno) : null; return `<tr><td><b style="font-weight:600">${esc(x.empleado)}</b></td><td>${esc(x.puesto || '')}</td><td>${esc(x.servicio)}</td><td><span class="tag mut">Entró ${fHM.format(new Date(x.fecha_hora))}${gr ? ' · es del grupo ' + gr : (e && e.turno ? ' · turno ' + esc(e.turno) : '')}</span></td></tr>`; }).join('');
+    prog(''); $('#efVivo').textContent = 'Actualizado ' + fHM.format(new Date());
+  } catch (e) { prog('No se pudo cargar el estado de fuerza: ' + e.message); }
+  finally { efCargando = false; }
+}
+
+/* =================== BORRADOS =================== */
+let borrados = [];
+async function cargarBorrados() {
+  const B = $('#bBody');
+  B.innerHTML = '<tr><td colspan="8" class="empty">Cargando…</td></tr>';
+  const { data, error } = await sb.rpc('listar_registros_borrados', { p_dias: +$('#bDias').value });
+  if (error) {
+    const m = error.message || '';
+    B.innerHTML = `<tr><td colspan="8" class="empty">No se pudo cargar: ${esc(/listar_registros_borrados|schema cache/i.test(m) ? 'falta correr sql/9_registros_borrados.sql en Supabase.' : m)}</td></tr>`;
+    return;
+  }
+  borrados = data || [];
+  $('#bVivo').textContent = `${borrados.length} borrado${borrados.length === 1 ? '' : 's'}`;
+  if (!borrados.length) { B.innerHTML = '<tr><td colspan="8" class="empty">No hay registros borrados en este periodo.</td></tr>'; return; }
+  B.innerHTML = borrados.map((r, i) => {
+    const d = new Date(r.fecha_hora), b = new Date(r.borrado_en);
+    return `<tr>
+      <td><button class="thumb" type="button" data-i="${i}">${r.foto_path ? '…' : '—'}</button></td>
+      <td class="mono">${fFecha.format(d)}<div>${fHora.format(d)}</div></td>
+      <td><span class="pill ${esc(r.tipo)}">${esc(r.tipo)}</span></td>
+      <td class="mono">${esc(r.turno || '—')}</td>
+      <td><b style="font-weight:600">${esc(r.empleado || '—')}</b><div class="sub" style="font-size:13px">${esc(r.puesto || '')}</div></td>
+      <td>${esc(r.servicio || '—')}</td>
+      <td class="mono">${fFecha.format(b)} ${fHM.format(b)}<div class="sub" style="font-size:12px;font-family:var(--body)">${esc(r.borrado_por || '')}</div></td>
+      <td style="text-align:right"><button class="btn sm" type="button" data-rest="${i}">Restaurar</button></td></tr>`;
+  }).join('');
+  $$('#bBody button[data-rest]').forEach(b => b.onclick = () => restaurarRegistro(borrados[+b.dataset.rest]));
+  const get = await urlsFirmadas(borrados.map(r => r.foto_path));
+  $$('#bBody .thumb').forEach(b => { const r = borrados[+b.dataset.i]; const u = r && get(r.foto_path); if (u) { b.innerHTML = `<img src="${u}" alt="Foto" loading="lazy">`; b.onclick = () => verFoto(u); } });
+}
+async function restaurarRegistro(r) {
+  if (!r) return;
+  const d = new Date(r.fecha_hora);
+  if (!confirm(`¿Restaurar este registro?\n\n${r.tipo} · ${r.empleado}\n${r.servicio}\n${fFecha.format(d)} ${fHora.format(d)}\n\nVuelve a aparecer en Asistencia, reportes y cobertura.`)) return;
+  const { error } = await sb.rpc('restaurar_registro', { p_id: String(r.id) });
+  if (error) {
+    const m = error.message || '';
+    alert('No se pudo restaurar: ' + (/NO_ADMIN/.test(m) ? 'esta cuenta no es administrador.' : /REGISTRO_NO_ENCONTRADO/.test(m) ? 'el registro ya no está en borrados.' : /restaurar_registro|schema cache/i.test(m) ? 'falta correr sql/9_registros_borrados.sql en Supabase.' : m));
+    return;
+  }
+  await cargarBorrados(); cargarRegistros();
+}
+$('#bDias').onchange = cargarBorrados;
+$('#bRecargar').onclick = cargarBorrados;
+
+// Refresca lo que esté a la vista (Asistencia, Cobertura, Nocturna, Estado de fuerza).
+function refrescarVivo() {
+  cargarRegistros();
+  if (!$('#secCobertura').hidden && (cobNoche || $('#kFecha').value === hoyISO())) cargarCob();
+  if (!$('#secNocturna').hidden) cargarNoc();
+  if (!$('#secFuerza').hidden && $('#efFecha').value === hoyISO()) cargarFuerza();
+}
+let vivoIntervalo = null;
+document.addEventListener('visibilitychange', () => { if (!document.hidden && canal) refrescarVivo(); });   // al volver a la pestaña o desbloquear el celular
 function escucharEnVivo() {
   if (canal) sb.removeChannel(canal);
   let t = null;
   canal = sb.channel('registros-vivo')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => { clearTimeout(t); t = setTimeout(() => { cargarRegistros(); if (!$('#secCobertura').hidden && (cobNoche || $('#kFecha').value === hoyISO())) cargarCob(); if (!$('#secNocturna').hidden) cargarNoc(); }, 800); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => { clearTimeout(t); t = setTimeout(refrescarVivo, 800); })
     .subscribe();
-  setInterval(cargarRegistros, 60000);   // respaldo por si se corta la conexión en vivo
+  clearInterval(vivoIntervalo); vivoIntervalo = setInterval(refrescarVivo, 60000);   // respaldo por si se corta la conexión en vivo
 }
 
 /* ---------- reportes por turno ---------- */
@@ -903,14 +1123,15 @@ async function pintarNoc() {
           <td><button class="thumb" type="button" data-p="${esc(f.ent.foto_path || '')}">${f.ent.foto_path ? '…' : '—'}</button></td>
           <td><b style="font-weight:600">${esc(f.ent.empleado)}</b><div class="sub" style="font-size:13px">${esc(f.ent.puesto)}</div></td>
           <td class="mono">${esc(f.ent.turno || '—')}</td>
-          <td class="mono" style="color:var(--blue);font-weight:600">${horaTurno(f.ent.fecha_hora, c.D)}</td>
+          <td class="mono" data-bn="${gi}:${i}:e" style="color:var(--blue);font-weight:600">${horaTurno(f.ent.fecha_hora, c.D)}</td>
           <td>${f.sal ? `<button class="thumb" type="button" data-p="${esc(f.sal.foto_path || '')}">${f.sal.foto_path ? '…' : '—'}</button>` : ''}</td>
-          <td>${f.sal ? `<span class="mono" style="font-weight:600">${horaTurno(f.sal.fecha_hora, c.D)}</span>` : '<span class="tag ok">En turno</span>'}</td>
+          <td${f.sal ? ` data-bn="${gi}:${i}:s"` : ''}>${f.sal ? `<span class="mono" style="font-weight:600">${horaTurno(f.sal.fecha_hora, c.D)}</span>` : '<span class="tag ok">En turno</span>'}</td>
           <td class="mono">${durTxt(f.min)}</td>
           <td>${obsNoc(f).map(([k, t]) => `<div class="tag ${k}">${esc(t)}</div>`).join('') || '<span class="tag mut">—</span>'}</td></tr>`).join('')
         : `<tr><td colspan="8" class="empty">${g.req ? 'Nadie ha checado entrada esta noche.' : 'Este servicio no requiere elementos esta noche.'}</td></tr>`}</tbody>
       </table></div></div>`;
   }).join('');
+  $$('#nLista td[data-bn]').forEach(td => { const [gi, i, k] = td.dataset.bn.split(':'); const f = c.grupos[+gi].filas[+i]; armarBorrado(td, k === 'e' ? f.ent : f.sal); });
   const paths = c.grupos.flatMap(g => g.filas.flatMap(f => [f.ent.foto_path, f.sal && f.sal.foto_path]));
   const get = await urlsFirmadas(paths);
   $$('#nLista .thumb[data-p]').forEach(b => { const u = b.dataset.p && get(b.dataset.p); if (u) { b.innerHTML = `<img src="${u}" alt="Foto" loading="lazy">`; b.onclick = () => verFoto(u); } });
@@ -1239,12 +1460,26 @@ $('#kPdf').onclick = async () => {
 };
 
 /* =================== ELEMENTOS =================== */
-['#eQ', '#eServ', '#eEst'].forEach(s => $(s).addEventListener('input', pintarElementos));
+['#eQ', '#eServ', '#ePuesto', '#eTurno', '#eEst'].forEach(s => $(s).addEventListener('input', pintarElementos));
+// Orden: por defecto alfabético por nombre. Clic en un encabezado para ordenar por esa columna (otro clic invierte).
+let eOrd = { k: 'nombre', d: 1 };
+const eClave = { nombre: e => e.nombre, numero: e => e.numero || '', puesto: e => e.puesto || '', servicio: e => nombreServ(e.servicio_base_id) || 'zzz', turno: e => e.turno || 'zzz', telefono: e => e.telefono || '', estado: e => (e.activo ? '0' : '1') };
+const cmpEs = (a, b) => String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
+function marcarOrden() { $$('#eHead th[data-ord]').forEach(th => th.setAttribute('aria-sort', th.dataset.ord === eOrd.k ? (eOrd.d === 1 ? 'ascending' : 'descending') : 'none')); }
+$$('#eHead th[data-ord]').forEach(th => th.onclick = () => { eOrd = { k: th.dataset.ord, d: eOrd.k === th.dataset.ord ? -eOrd.d : 1 }; pintarElementos(); });
+
 async function pintarElementos() {
   const q = norm($('#eQ').value.trim()), sv = $('#eServ').value, solo = $('#eEst').value === '1';
+  // Lista de puestos que existen (se actualiza sola al dar de alta nuevos)
+  { const sp = $('#ePuesto'), v = sp.value, ps = [...new Set(empleados.map(e => (e.puesto || '').trim()).filter(Boolean))].sort(cmpEs), h = ps.join('|');
+    if (sp.dataset.ps !== h) { sp.dataset.ps = h; sp.innerHTML = '<option value="">Todos los puestos</option>' + ps.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join(''); if (ps.includes(v)) sp.value = v; } }
+  const pu = $('#ePuesto').value, tu = $('#eTurno').value;
+  marcarOrden();
   const act = empleados.filter(e => e.activo).length;
   $('#eSub').textContent = `${act} activos en ${new Set(empleados.filter(e => e.activo && e.servicio_base_id).map(e => e.servicio_base_id)).size} servicios · solo los activos aparecen en el checador`;
-  const lista = empleados.filter(e => (!solo || e.activo) && (!sv || e.servicio_base_id === sv) && (!q || norm(e.nombre).includes(q) || (e.numero || '').includes(q)));
+  const lista = empleados.filter(e => (!solo || e.activo) && (!sv || e.servicio_base_id === sv) && (!pu || (e.puesto || '').trim() === pu) && (!tu || (tu === '__sin' ? !e.turno : e.turno === tu)) && (!q || norm(e.nombre).includes(q) || (e.numero || '').includes(q)))
+    .sort((a, b) => eOrd.d * cmpEs(eClave[eOrd.k](a), eClave[eOrd.k](b)) || cmpEs(a.nombre, b.nombre));
+  $('#eSub').textContent += ` · Mostrando ${lista.length} de ${empleados.length}`;
   const B = $('#eBody');
   if (!lista.length) { B.innerHTML = `<tr><td colspan="8" class="empty">${empleados.length ? 'Nadie coincide con la búsqueda.' : 'Todavía no hay elementos. Da de alta el primero con el botón de arriba.'}</td></tr>`; return; }
   B.innerHTML = lista.map(e => `<tr>
