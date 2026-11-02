@@ -911,7 +911,10 @@ async function datosTurnos() {
   progreso('Armando turnos…');
   const { data, error } = await sb.rpc('reporte_turnos', { p_desde: p.desde, p_hasta: p.hasta, p_servicio: p.servicio });
   if (error) throw error;
-  const turnos = (data || []).filter(t => coincideEmp(t, p.emp));
+  // Orden de los reportes (PDF y Excel): del día más antiguo al más reciente; dentro del día, por hora de entrada.
+  const horaT = t => t.entrada || t.salida || '';
+  const turnos = (data || []).filter(t => coincideEmp(t, p.emp))
+    .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || horaT(a).localeCompare(horaT(b)) || String(a.empleado).localeCompare(String(b.empleado), 'es'));
   const fotos = await bajarFotos(turnos.flatMap(t => [t.entrada_foto, t.salida_foto]), (h, n) => progreso(`Descargando fotos ${h} de ${n}…`));
   return { p, turnos, fotos };
 }
