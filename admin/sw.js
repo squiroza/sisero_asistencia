@@ -1,7 +1,7 @@
 // Permite instalar la página y que abra aunque falle la señal. Los datos siempre van directo a Supabase.
-const CACHE = 'sisero-admin-v11';
+const CACHE = 'sisero-admin-v12';
 const ESPERA_MS = 4000; // si la red no responde en 4 s, se usa lo guardado
-const ARCHIVOS = ['./', './index.html', './manifest.webmanifest', '../config.js', '../assets/sisero-logo.png', '../assets/sisero-icono.png', '../assets/sisero-texto.png', '../assets/favicon.png', '../assets/icono-192.png'];
+const ARCHIVOS = ['./', './index.html', './manifest.webmanifest', '../config.js', '../assets/sisero-logo.png', '../assets/sisero-icono.png', '../assets/sisero-texto.png', '../assets/favicon.png', '../assets/icono-192.png', '../tema-muertos.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('sisero-admin') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
