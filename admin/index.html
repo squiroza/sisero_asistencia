@@ -77,6 +77,8 @@ tr:last-child td{border-bottom:0}
 .pill.on{background:var(--ok-bg);color:var(--ok)} .pill.off{background:#ececec;color:var(--muted)}
 .tag{font-size:12.5px;font-weight:600}
 .tag.warn{color:var(--warn)} .tag.ok{color:var(--ok)} .tag.bad{color:var(--bad)} .tag.mut{color:var(--muted)}
+.chk{display:flex;align-items:center;gap:8px;font-size:15px;white-space:nowrap}
+.chk input{width:20px;height:20px}
 th[data-ord]{cursor:pointer;-webkit-user-select:none;user-select:none;white-space:nowrap}
 th[data-ord]:hover{color:var(--navy)}
 th[data-ord][aria-sort=ascending]::after{content:' ▲';font-size:10px}
@@ -216,6 +218,15 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
       <div id="cobBox" style="display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><b style="font-family:var(--display);font-style:italic;font-weight:800;font-size:20px">Cobertura de hoy</b><span class="sub" style="font-size:13px">Elementos distintos que checaron entrada hoy contra los requeridos del día</span></div>
         <div class="cob" id="cobLista"></div>
+      </div>
+      <div class="card filters" id="aFiltros2">
+        <label class="f" style="flex:1 1 130px">Tipo<select id="aTipo"><option value="">Todos</option><option>Entrada</option><option>Salida</option></select></label>
+        <label class="f" style="flex:1 1 140px">Turno<select id="aTurno"><option value="">Todos</option><option>12x12 D</option><option>12x12 N</option><option>24x24 A</option><option>24x24 B</option><option>24x24</option><option>12x24</option><option>12x36</option><option value="__sin">Sin turno</option></select></label>
+        <label class="f" style="flex:1 1 170px">Puesto<select id="aPuesto"><option value="">Todos</option></select></label>
+        <label class="f" style="flex:1 1 170px">Ubicación<select id="aUbic"><option value="">Todas</option><option value="en">En servicio</option><option value="fuera">Fuera de zona</option><option value="sin">Sin GPS</option></select></label>
+        <label class="chk" style="padding-bottom:14px"><input id="aCub" type="checkbox"> Solo coberturas</label>
+        <button class="btn sm" type="button" id="aLimpiar">Limpiar filtros</button>
+        <span class="sub" id="aCuenta" style="padding-bottom:14px"></span>
       </div>
       <div class="card tablebox">
         <table style="min-width:980px">
@@ -711,9 +722,18 @@ async function pintarRegistros() {
   $('#sSal').textContent = registros.filter(r => r.tipo === 'Salida').length;
   $('#sCub').textContent = registros.filter(r => r.cubre).length;
   $('#sFue').textContent = registros.filter(r => r.fuera_zona).length;
+  // Filtros de la tabla (no cambian los reportes PDF/Excel, que usan el periodo, servicio y elemento de arriba)
+  { const sp = $('#aPuesto'), v = sp.value, ps = [...new Set(registros.map(r => (r.puesto || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), h = ps.join('|');
+    if (sp.dataset.ps !== h) { sp.dataset.ps = h; sp.innerHTML = '<option value="">Todos</option>' + ps.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join(''); if (ps.includes(v)) sp.value = v; } }
+  const fTipo = $('#aTipo').value, fTurno = $('#aTurno').value, fPuesto = $('#aPuesto').value, fUbic = $('#aUbic').value, soloCub = $('#aCub').checked;
+  const ubicDe = r => r.lat == null ? 'sin' : r.fuera_zona ? 'fuera' : 'en';
+  const regsF = registros.filter(r => (!fTipo || r.tipo === fTipo) && (!fTurno || (fTurno === '__sin' ? !r.turno : r.turno === fTurno)) && (!fPuesto || (r.puesto || '').trim() === fPuesto) && (!fUbic || ubicDe(r) === fUbic) && (!soloCub || r.cubre));
+  const hayFiltro = !!(fTipo || fTurno || fPuesto || fUbic || soloCub);
+  $('#aCuenta').textContent = hayFiltro ? `Mostrando ${regsF.length} de ${registros.length}` : '';
   const B = $('#aBody');
   if (!registros.length) { B.innerHTML = '<tr><td colspan="9" class="empty">No hay registros en este periodo. En cuanto alguien cheque, aparece aquí.</td></tr>'; return; }
-  const vis = registros.slice(0, 500);
+  if (!regsF.length) { B.innerHTML = '<tr><td colspan="9" class="empty">Ningún registro coincide con los filtros.</td></tr>'; return; }
+  const vis = regsF.slice(0, 500);
   B.innerHTML = vis.map((r, i) => {
     const d = new Date(r.fecha_hora);
     let ub = '<span class="tag mut">Sin GPS</span>';
@@ -731,7 +751,7 @@ async function pintarRegistros() {
       <td>${esc(r.puesto)}</td>
       <td>${esc(r.servicio)}</td>
       <td>${ub}</td></tr>`;
-  }).join('') + (registros.length > 500 ? `<tr><td colspan="9" class="empty">Se muestran los 500 más recientes de ${registros.length}. Los reportes incluyen todos.</td></tr>` : '');
+  }).join('') + (regsF.length > 500 ? `<tr><td colspan="9" class="empty">Se muestran los 500 más recientes de ${regsF.length}. Los reportes incluyen todos.</td></tr>` : '');
   $$('#aBody td[data-borrar]').forEach(td => armarBorrado(td, vis[+td.dataset.borrar]));
   const get = await urlsFirmadas(vis.map(r => r.foto_path));
   $$('#aBody .thumb').forEach(b => {
@@ -764,6 +784,9 @@ async function borrarRegistro(r) {
   if (!$('#secNocturna').hidden) cargarNoc();
   if (!$('#secCobertura').hidden) cargarCob();
 }
+['#aTipo', '#aTurno', '#aPuesto', '#aUbic', '#aCub'].forEach(sel => $(sel).onchange = () => pintarRegistros());
+$('#aLimpiar').onclick = () => { ['#aTipo', '#aTurno', '#aPuesto', '#aUbic'].forEach(sel => $(sel).value = ''); $('#aCub').checked = false; pintarRegistros(); };
+
 /* =================== ESTADO DE FUERZA (grupos 24x24 A / B) =================== */
 // El grupo que trabaja se alterna cada día. Se guarda un día de referencia en este navegador:
 // al elegir "Grupo que trabaja ese día", el sistema calcula solo los demás días.
