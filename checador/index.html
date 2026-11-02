@@ -706,9 +706,20 @@ if (!CFG.SUPABASE_URL || CFG.SUPABASE_URL.includes('TU-PROYECTO')) {
   document.body.innerHTML = '<div style="padding:40px 24px;font-family:system-ui"><h2>Falta configurar</h2><p>Escribe los datos de Supabase en el archivo <b>config.js</b>.</p></div>';
   return;
 }
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// Actualización automática: busca una versión nueva al abrir, al volver a la app, al recuperar internet y cada 10 minutos.
+// Si hay una, se instala sola y la app se recarga con el turno correcto (24x24 A / B).
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    const buscar = () => reg.update().catch(() => {});
+    buscar();
+    setInterval(buscar, 10 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) buscar(); });
+    window.addEventListener('online', buscar);
+  }).catch(() => {});
+}
 iniciar();
 })();
 </script>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#8a94a3;pointer-events:none">v7</div>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // Guarda la app en el celular para que abra aunque no haya señal.
-const CACHE = 'sisero-checador-v6';
+const CACHE = 'sisero-checador-v7';
 const ESPERA_MS = 4000; // si la red no responde en 4 s, se usa lo guardado
 const ARCHIVOS = [
   './', './index.html', './manifest.webmanifest', '../config.js',
@@ -8,11 +8,31 @@ const ARCHIVOS = [
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'
 ];
 
+// Instala la versión nueva descargando cada archivo fresco del servidor (sin usar copias viejas del navegador).
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE);
+    await Promise.all(ARCHIVOS.map(async u => {
+      const r = await fetch(new Request(u, { cache: 'reload' }));
+      if (!r.ok) throw new Error('No se pudo descargar ' + u);
+      await c.put(u, r);
+    }));
+    await self.skipWaiting();   // la versión nueva toma el control sin esperar a que cierren la app
+  })());
 });
+// Al activarse: borra las copias viejas del checador y, si venía de una versión anterior,
+// recarga las ventanas abiertas para que el celular quede con la versión nueva sin que nadie haga nada.
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil((async () => {
+    const ks = await caches.keys();
+    const viejas = ks.filter(k => k.startsWith('sisero-checador') && k !== CACHE);
+    await Promise.all(viejas.map(k => caches.delete(k)));
+    await self.clients.claim();
+    if (viejas.length) {
+      const ventanas = await self.clients.matchAll({ type: 'window' });
+      ventanas.forEach(w => { try { w.navigate(w.url).catch(() => {}); } catch (err) {} });
+    }
+  })());
 });
 self.addEventListener('fetch', e => {
   const req = e.request;
