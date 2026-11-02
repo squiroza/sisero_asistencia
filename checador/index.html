@@ -616,9 +616,11 @@ setInterval(cargarElementos, 120000);
 /* ---------- sesión ---------- */
 // Lista de correos de los celulares. Agrega aquí uno por servicio.
 const CORREOS = [
-  'merzabodega@gmail.com',
-  // 'otro.servicio@gmail.com',
+  // Lista fija (opcional). Vacía: cada celular solo muestra los correos con los que ya entró.
+  // 'servicio@gmail.com',
 ];
+// Una sola vez: quita de la lista guardada en este celular el correo de prueba que venía de inicio.
+if (!store.get('sisero_correos_limpio', false)) { store.set('sisero_correos', store.get('sisero_correos', []).filter(c => c !== 'merzabodega@gmail.com')); store.set('sisero_correos_limpio', true); }
 const OTRO = '__otro';
 const selEmail = $('#lEmail');
 // La lista junta los correos fijos de arriba + los que ya entraron en este celular (se agregan solos).
@@ -720,6 +722,7 @@ if ('serviceWorker' in navigator) {
 iniciar();
 })();
 </script>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#8a94a3;pointer-events:none">v7</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#8a94a3;pointer-events:none">v8</div>
+<script src="../tema-muertos.js" defer></script>
 </body>
 </html>

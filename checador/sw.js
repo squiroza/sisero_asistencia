@@ -5,17 +5,21 @@ const ARCHIVOS = [
   './', './index.html', './manifest.webmanifest', '../config.js',
   '../assets/sisero-icono.png', '../assets/sisero-texto.png', '../assets/sisero-texto-blanco.png',
   '../assets/sisero-logo.png', '../assets/icono-192.png', '../assets/favicon.png',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',
+  '../tema-muertos.js'
 ];
+const OPCIONALES = ['../tema-muertos.js'];   // si falta en el servidor, la app se instala igual
 
 // Instala la versión nueva descargando cada archivo fresco del servidor (sin usar copias viejas del navegador).
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
     await Promise.all(ARCHIVOS.map(async u => {
-      const r = await fetch(new Request(u, { cache: 'reload' }));
-      if (!r.ok) throw new Error('No se pudo descargar ' + u);
-      await c.put(u, r);
+      try {
+        const r = await fetch(new Request(u, { cache: 'reload' }));
+        if (!r.ok) throw new Error('No se pudo descargar ' + u);
+        await c.put(u, r);
+      } catch (err) { if (!OPCIONALES.includes(u)) throw err; }
     }));
     await self.skipWaiting();   // la versión nueva toma el control sin esperar a que cierren la app
   })());
