@@ -176,6 +176,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <button class="nav" data-sec="cobertura">Cobertura</button>
     <button class="nav" data-sec="coberturaNoche">Cobertura nocturna</button>
     <button class="nav" data-sec="elementos">Elementos</button>
+    <button class="nav" data-sec="ef">EF</button>
     <button class="nav" data-sec="servicios">Servicios</button>
     <button class="nav" data-sec="celulares">Celulares</button>
     <button class="nav" data-sec="borrados">Borrados</button>
@@ -231,6 +232,31 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <table style="min-width:980px">
           <thead><tr><th>Foto</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Turno</th><th>Elemento</th><th>Puesto</th><th>Servicio</th><th>Ubicación</th></tr></thead>
           <tbody id="aBody"><tr><td colspan="9" class="empty">Cargando registros…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= EF (plantilla de fuerza) ================= -->
+    <section id="secEF" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>EF · Estado de fuerza</h1><div class="sub" id="efSub">Plantilla por servicio</div></div>
+        <div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap">
+          <div class="card kpi" style="border-top-color:var(--ok);min-width:120px"><span>Activos</span><b id="efAct" style="color:var(--ok)">0</b></div>
+          <div class="card kpi" style="border-top-color:var(--bad);min-width:120px"><span>Vacantes</span><b id="efVac" style="color:var(--bad)">0</b></div>
+          <div class="card kpi" style="border-top-color:var(--warn);min-width:120px"><span>Cubre descansos</span><b id="efCub" style="color:var(--warn)">0</b></div>
+          <button class="btn primary" id="efNuevo" type="button" style="align-self:center">+ Agregar</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">
+        <label class="f" style="flex:2 1 220px"><input id="efQ" type="search" placeholder="Buscar por nombre o puesto"></label>
+        <label class="f" style="flex:1 1 200px"><select id="efServ"><option value="">Todos los servicios</option></select></label>
+        <label class="f" style="flex:1 1 150px"><select id="efTurno"><option value="">Todos los turnos</option><option>24x24 A</option><option>24x24 B</option><option>12x12 D</option><option>12x12 N</option><option>12x36</option><option>12x24</option></select></label>
+        <label class="f" style="flex:1 1 150px"><select id="efEst"><option value="">Todos</option><option value="act">Solo activos</option><option value="vac">Solo vacantes</option><option value="cub">Solo cubre descansos</option></select></label>
+      </div>
+      <div class="card tablebox">
+        <table style="min-width:760px">
+          <thead><tr><th>Nombre</th><th>Puesto</th><th>Turno</th><th>Servicio</th><th></th></tr></thead>
+          <tbody id="efBody"><tr><td colspan="5" class="empty">Cargando…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -428,6 +454,21 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
 </dialog>
 <datalist id="dlPuestos"><option value="Guardia"><option value="Guardia armado"><option value="Jefe de turno"><option value="Jefe de Servicio"><option value="Coordinador"><option value="Coordinadora"><option value="Supervisor"><option value="Escolta"><option value="Monitorista"></datalist>
 
+<!-- Diálogo: posición de la plantilla EF -->
+<dialog id="dEF">
+  <form class="dlg" id="fEF" method="dialog" novalidate>
+    <h2 id="efTitulo">Agregar a la plantilla</h2>
+    <div class="grid2">
+      <label class="f full">Nombre<select id="efNombre"></select></label>
+      <label class="f">Puesto<input id="efPuesto" type="text" list="dlPuestos" required></label>
+      <label class="f">Turno<select id="efTurnoF"><option value="">Selecciona…</option><option>24x24 A</option><option>24x24 B</option><option>12x12 D</option><option>12x12 N</option><option>12x36</option><option>12x24</option></select></label>
+      <label class="f full">Servicio<select id="efServF"></select></label>
+    </div>
+    <div id="efMsg" class="msg bad" hidden></div>
+    <div class="actions"><button class="btn" type="button" id="efCancel">Cancelar</button><button class="btn" type="button" id="efOtro">Guardar y agregar otro</button><button class="btn primary" type="submit" id="efGuardar">Guardar</button></div>
+  </form>
+</dialog>
+
 <!-- Diálogo oculto: editar / borrar un registro de asistencia -->
 <dialog id="dReg">
   <form class="dlg" id="fReg" method="dialog" novalidate>
@@ -611,7 +652,7 @@ const etiquetaEmp = e => e.nombre + (e.numero ? ' · No. ' + e.numero : '') + (e
 const empPorEtiqueta = t => { t = (t || '').trim(); if (!t) return null; return empleados.find(e => etiquetaEmp(e) === t) || empleados.find(e => norm(e.nombre) === norm(t)) || undefined; };
 
 /* ---------- navegación ---------- */
-const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares', borrados: '#secBorrados' };
+const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares', borrados: '#secBorrados', ef: '#secEF' };
 function ir(sec) {
   Object.values(secs).forEach(s => { $(s).hidden = s !== secs[sec]; });
   $$('nav.side button.nav').forEach(b => b.setAttribute('aria-current', b.dataset.sec === sec ? 'page' : 'false'));
@@ -621,6 +662,7 @@ function ir(sec) {
   if (sec === 'servicios') pintarServicios();
   if (sec === 'celulares') pintarCelulares();
   if (sec === 'borrados') cargarBorrados();
+  if (sec === 'ef') cargarEF();
   try { history.replaceState(null, '', '#' + sec); } catch (e) {}
 }
 $$('nav.side button.nav').forEach(b => b.onclick = () => ir(b.dataset.sec));
@@ -803,6 +845,102 @@ async function borrarRegistro(r) {
 }
 ['#aTipo', '#aTurno', '#aPuesto', '#aUbic', '#aCub'].forEach(sel => $(sel).onchange = () => pintarRegistros());
 $('#aLimpiar').onclick = () => { ['#aTipo', '#aTurno', '#aPuesto', '#aUbic'].forEach(sel => $(sel).value = ''); $('#aCub').checked = false; pintarRegistros(); };
+
+/* =================== EF (plantilla de fuerza) =================== */
+const EF_TURNOS = ['24x24 A', '24x24 B', '12x12 D', '12x12 N', '12x36', '12x24'];
+const VAC = '__vacante', CUB = '__cubre';
+const efTipo = f => f.vacante ? 'vac' : f.cubre_descansos ? 'cub' : 'act';
+let efFilas = [], efEdit = null;
+const efServ = id => (servicios.find(x => String(x.id) === String(id)) || {}).nombre || 'Sin asignar';
+
+async function cargarEF() {
+  const B = $('#efBody');
+  const { data, error } = await sb.from('plantilla_ef').select('*').order('creado_en', { ascending: true });
+  if (error) {
+    B.innerHTML = `<tr><td colspan="5" class="empty">No se pudo cargar: ${esc(/plantilla_ef|schema cache|does not exist/i.test(error.message || '') ? 'falta correr sql/13_plantilla_ef.sql y sql/14_ef_cubre_descansos.sql en Supabase.' : error.message)}</td></tr>`;
+    return;
+  }
+  efFilas = data || [];
+  // lista de servicios para el filtro (conserva la selección)
+  { const sp = $('#efServ'), v = sp.value; sp.innerHTML = '<option value="">Todos los servicios</option>' + servicios.map(x => `<option value="${x.id}">${esc(x.nombre)}${x.activo ? '' : ' (inactivo)'}</option>`).join(''); if ([...sp.options].some(o => o.value === v)) sp.value = v; }
+  pintarEF();
+}
+function pintarEF() {
+  const q = norm($('#efQ').value.trim()), sv = $('#efServ').value, tu = $('#efTurno').value, es = $('#efEst').value;
+  const base = efFilas.filter(f => (!sv || String(f.servicio_id) === sv) && (!tu || f.turno === tu) && (!q || norm(f.nombre).includes(q) || norm(f.puesto || '').includes(q)));
+  // Los contadores respetan servicio, turno y búsqueda (no el filtro de estatus)
+  $('#efAct').textContent = base.filter(f => efTipo(f) === 'act').length;
+  $('#efVac').textContent = base.filter(f => efTipo(f) === 'vac').length;
+  $('#efCub').textContent = base.filter(f => efTipo(f) === 'cub').length;
+  const ord = { act: 0, cub: 1, vac: 2 };
+  const lista = base.filter(f => !es || efTipo(f) === es)
+    .sort((a, b) => efServ(a.servicio_id).localeCompare(efServ(b.servicio_id), 'es') || EF_TURNOS.indexOf(a.turno) - EF_TURNOS.indexOf(b.turno) || (ord[efTipo(a)] - ord[efTipo(b)]) || a.nombre.localeCompare(b.nombre, 'es'));
+  $('#efSub').textContent = `Mostrando ${lista.length} de ${efFilas.length} posiciones`;
+  const B = $('#efBody');
+  if (!efFilas.length) { B.innerHTML = '<tr><td colspan="5" class="empty">Todavía no hay posiciones. Toca <b>+ Agregar</b> para empezar.</td></tr>'; return; }
+  if (!lista.length) { B.innerHTML = '<tr><td colspan="5" class="empty">Ninguna posición coincide con los filtros.</td></tr>'; return; }
+  B.innerHTML = lista.map(f => `<tr>
+    <td>${f.vacante ? '<span class="tag bad">Vacante</span>' : f.cubre_descansos ? '<span class="tag warn">Cubre descansos</span>' : `<b style="font-weight:600">${esc(f.nombre)}</b>`}</td>
+    <td>${esc(f.puesto || '')}</td><td class="mono">${esc(f.turno || '—')}</td><td>${esc(efServ(f.servicio_id))}</td>
+    <td style="text-align:right;white-space:nowrap"><button class="btn sm" type="button" data-efe="${f.id}">Editar</button> <button class="btn sm" type="button" data-efd="${f.id}" style="color:var(--bad)">Eliminar</button></td></tr>`).join('');
+  $$('#efBody [data-efe]').forEach(b => b.onclick = () => abrirEF(efFilas.find(x => x.id === b.dataset.efe)));
+  $$('#efBody [data-efd]').forEach(b => b.onclick = () => borrarEF(efFilas.find(x => x.id === b.dataset.efd)));
+}
+['#efQ', '#efServ', '#efTurno', '#efEst'].forEach(sel => { $(sel).oninput = pintarEF; $(sel).onchange = pintarEF; });
+
+function abrirEF(f) {
+  efEdit = f || null;
+  $('#efTitulo').textContent = f ? 'Editar posición' : 'Agregar a la plantilla';
+  $('#efOtro').hidden = !!f;
+  const activos = empleados.filter(e => e.activo || (f && String(e.id) === String(f.empleado_id))).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  $('#efNombre').innerHTML = `<option value="${VAC}">Vacante</option><option value="${CUB}">Cubre descansos</option>` + activos.map(e => `<option value="${e.id}">${esc(e.nombre)}${e.numero ? ' · #' + esc(e.numero) : ''}</option>`).join('');
+  $('#efServF').innerHTML = '<option value="">Sin asignar</option>' + servicios.filter(x => x.activo || (f && String(x.id) === String(f.servicio_id))).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+  $('#efNombre').value = f ? (f.vacante ? VAC : f.cubre_descansos ? CUB : String(f.empleado_id)) : VAC;
+  $('#efPuesto').value = f ? f.puesto || '' : '';
+  $('#efTurnoF').value = f ? f.turno || '' : '';
+  $('#efServF').value = f ? f.servicio_id || '' : ($('#efServ').value || '');
+  $('#efMsg').hidden = true; $('#efGuardar').disabled = false;
+  $('#dEF').showModal();
+}
+// Al elegir un elemento nuevo, propone su puesto, turno y servicio (si el campo está vacío)
+$('#efNombre').onchange = () => {
+  if (efEdit) return;
+  if ($('#efNombre').value === CUB && !$('#efPuesto').value.trim()) $('#efPuesto').value = 'Cubre descansos';
+  const e = empleados.find(x => String(x.id) === $('#efNombre').value); if (!e) return;
+  if (!$('#efPuesto').value.trim()) $('#efPuesto').value = e.puesto || '';
+  if (!$('#efTurnoF').value && EF_TURNOS.includes(e.turno)) $('#efTurnoF').value = e.turno;
+  if (!$('#efServF').value && e.servicio_base_id) $('#efServF').value = e.servicio_base_id;
+};
+$('#efNuevo').onclick = () => abrirEF(null);
+$('#efCancel').onclick = () => $('#dEF').close();
+
+async function guardarEF(otro) {
+  const m = t => { $('#efMsg').textContent = t; $('#efMsg').hidden = false; };
+  const v = $('#efNombre').value, vac = v === VAC, cub = v === CUB, e = (vac || cub) ? null : empleados.find(x => String(x.id) === v);
+  const fila = { nombre: vac ? 'Vacante' : cub ? 'Cubre descansos' : (e ? e.nombre : ''), empleado_id: (vac || cub) ? null : v, vacante: vac, cubre_descansos: cub, puesto: $('#efPuesto').value.trim().replace(/\s+/g, ' '), turno: $('#efTurnoF').value || null, servicio_id: $('#efServF').value || null };
+  if (!fila.puesto) return m('Escribe el puesto.');
+  if (!fila.turno) return m('Elige el turno.');
+  if (!fila.servicio_id) return m('Elige el servicio.');
+  $('#efGuardar').disabled = true; $('#efOtro').disabled = true;
+  try {
+    const { error } = efEdit ? await sb.from('plantilla_ef').update(fila).eq('id', efEdit.id) : await sb.from('plantilla_ef').insert(fila);
+    if (error) throw error;
+    await cargarEF();
+    if (otro) { const sv = fila.servicio_id, tu = fila.turno; abrirEF(null); $('#efServF').value = sv; $('#efTurnoF').value = tu; $('#efPuesto').focus(); }
+    else $('#dEF').close();
+  } catch (err) { m('No se pudo guardar: ' + (/plantilla_ef|schema cache|does not exist/i.test(err.message || '') ? 'falta correr sql/13_plantilla_ef.sql y sql/14_ef_cubre_descansos.sql en Supabase.' : err.message)); }
+  finally { $('#efGuardar').disabled = false; $('#efOtro').disabled = false; }
+}
+$('#fEF').addEventListener('submit', ev => { ev.preventDefault(); guardarEF(false); });
+$('#efOtro').onclick = () => guardarEF(true);
+
+async function borrarEF(f) {
+  if (!f) return;
+  if (!confirm(`¿Eliminar esta posición de la plantilla?\n\n${f.vacante ? 'Vacante' : f.nombre}\n${f.puesto || ''} · ${f.turno || ''}\n${efServ(f.servicio_id)}\n\nNo borra al elemento ni sus registros de asistencia.`)) return;
+  const { error } = await sb.from('plantilla_ef').delete().eq('id', f.id);
+  if (error) { alert('No se pudo eliminar: ' + error.message); return; }
+  await cargarEF();
+}
 
 /* =================== BORRADOS =================== */
 let borrados = [];
