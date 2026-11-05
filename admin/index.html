@@ -177,6 +177,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <button class="nav" data-sec="coberturaNoche">Cobertura nocturna</button>
     <button class="nav" data-sec="elementos">Elementos</button>
     <button class="nav" data-sec="ef">EF</button>
+    <button class="nav" data-sec="festivos">Festivos</button>
     <button class="nav" data-sec="servicios">Servicios</button>
     <button class="nav" data-sec="celulares">Celulares</button>
     <button class="nav" data-sec="borrados">Borrados</button>
@@ -244,7 +245,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap">
           <div class="card kpi" style="border-top-color:var(--ok);min-width:120px"><span>Activos</span><b id="efAct" style="color:var(--ok)">0</b></div>
           <div class="card kpi" style="border-top-color:var(--bad);min-width:120px"><span>Vacantes</span><b id="efVac" style="color:var(--bad)">0</b></div>
-          <button class="btn primary" id="efNuevo" type="button" style="align-self:center">+ Agregar</button>
+          <div style="display:flex;gap:8px;align-self:center;flex-wrap:wrap"><button class="btn outline" id="efPdf" type="button">Descargar PDF</button><button class="btn outline" id="efXls" type="button">Descargar Excel</button><button class="btn primary" id="efNuevo" type="button">+ Agregar</button></div>
         </div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:12px">
@@ -253,10 +254,26 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <label class="f" style="flex:1 1 150px"><select id="efTurno"><option value="">Todos los turnos</option><option>24x24 A</option><option>24x24 B</option><option>12x12 D</option><option>12x12 N</option><option>12x36</option><option>12x24</option></select></label>
         <label class="f" style="flex:1 1 150px"><select id="efEst"><option value="">Activos y vacantes</option><option value="act">Solo activos</option><option value="vac">Solo vacantes</option></select></label>
       </div>
+      <div id="efProg" class="msg info" hidden></div>
       <div class="card tablebox">
         <table style="min-width:760px">
           <thead><tr><th>Nombre</th><th>Puesto</th><th>Turno</th><th>Servicio</th><th></th></tr></thead>
           <tbody id="efBody"><tr><td colspan="5" class="empty">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= FESTIVOS / DÍAS SIN SERVICIO ================= -->
+    <section id="secFestivos" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Festivos · días sin servicio</h1><div class="sub">Fechas en las que un servicio (o todos) no abre. La cobertura de ese día queda en 0 sin tocar los días normales de la semana.</div></div>
+        <button class="btn primary" id="fvNuevo" type="button">+ Agregar día sin servicio</button>
+      </div>
+      <div id="fvMsg" class="msg" hidden></div>
+      <div class="card tablebox">
+        <table style="min-width:640px">
+          <thead><tr><th>Fecha</th><th>Servicio</th><th>Motivo</th><th></th></tr></thead>
+          <tbody id="fvBody"><tr><td colspan="4" class="empty">Cargando…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -464,6 +481,22 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
 </dialog>
 <datalist id="dlPuestos"><option value="Guardia"><option value="Guardia armado"><option value="Jefe de turno"><option value="Jefe de Servicio"><option value="Coordinador"><option value="Coordinadora"><option value="Supervisor"><option value="Escolta"><option value="Monitorista"></datalist>
 
+<!-- Diálogo: día sin servicio -->
+<dialog id="dFv">
+  <form class="dlg" id="fFv" method="dialog" novalidate>
+    <h2>Agregar día sin servicio</h2>
+    <div class="grid2">
+      <label class="f">Fecha<input id="fvDesde" type="date" required></label>
+      <label class="f">Hasta (opcional, si son varios días)<input id="fvHasta" type="date"></label>
+      <label class="f full">Servicio<select id="fvServ"></select></label>
+      <label class="f full">Motivo<input id="fvMotivo" type="text" list="dlMotivos" placeholder="Ej. Día de Muertos"></label>
+      <datalist id="dlMotivos"><option value="Día de Muertos"><option value="Navidad"><option value="Año Nuevo"><option value="Día de la Independencia"><option value="Revolución"><option value="Batalla de Puebla"><option value="Cierre del cliente"></datalist>
+    </div>
+    <div id="fvMsg2" class="msg bad" hidden></div>
+    <div class="actions"><button class="btn" type="button" id="fvCancel">Cancelar</button><button class="btn primary" type="submit" id="fvGuardar">Guardar</button></div>
+  </form>
+</dialog>
+
 <!-- Diálogo: posición de la plantilla EF -->
 <dialog id="dEF">
   <form class="dlg" id="fEF" method="dialog" novalidate>
@@ -643,15 +676,19 @@ async function reducir(file, max, q) {
 }
 
 /* ---------- estado ---------- */
-let servicios = [], empleados = [], dispositivos = [], registros = [], canal = null;
+let servicios = [], empleados = [], dispositivos = [], registros = [], canal = null, cierres = [];
+// ¿Ese servicio no abre ese día (festivo o cierre)? Devuelve el cierre o undefined.
+const cierreDe = (s, D) => cierres.find(c => String(c.fecha).slice(0, 10) === D && (!c.servicio_id || String(c.servicio_id) === String(s.id)));
 
 async function cargarCatalogos() {
-  const [s, e, d] = await Promise.all([
+  const [s, e, d, ci] = await Promise.all([
     sb.from('servicios').select('*').order('nombre'),
     sb.from('empleados').select('*').order('nombre'),
-    sb.from('dispositivos').select('*').order('email')
+    sb.from('dispositivos').select('*').order('email'),
+    sb.from('dias_sin_servicio').select('*').order('fecha', { ascending: false })
   ]);
   servicios = s.data || []; empleados = e.data || []; dispositivos = d.data || [];
+  cierres = ci.error ? [] : (ci.data || []);
   const opts = (todos) => (todos ? '<option value="">Todos los servicios</option>' : '') + servicios.map(x => `<option value="${x.id}">${esc(x.nombre)}${x.activo ? '' : ' (inactivo)'}</option>`).join('');
   const keep = (sel, html) => { const v = sel.value; sel.innerHTML = html; if ([...sel.options].some(o => o.value === v)) sel.value = v; };
   keep($('#aServ'), opts(true)); keep($('#eServ'), opts(true)); if (!cobNoche) keep($('#kServ'), opts(true)); keep($('#fiServ'), opts(false));
@@ -664,7 +701,7 @@ const etiquetaEmp = e => e.nombre + (e.numero ? ' · No. ' + e.numero : '') + (e
 const empPorEtiqueta = t => { t = (t || '').trim(); if (!t) return null; return empleados.find(e => etiquetaEmp(e) === t) || empleados.find(e => norm(e.nombre) === norm(t)) || undefined; };
 
 /* ---------- navegación ---------- */
-const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares', borrados: '#secBorrados', ef: '#secEF', temas: '#secTemas' };
+const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares', borrados: '#secBorrados', ef: '#secEF', temas: '#secTemas', festivos: '#secFestivos' };
 function ir(sec) {
   Object.values(secs).forEach(s => { $(s).hidden = s !== secs[sec]; });
   $$('nav.side button.nav').forEach(b => b.setAttribute('aria-current', b.dataset.sec === sec ? 'page' : 'false'));
@@ -676,6 +713,7 @@ function ir(sec) {
   if (sec === 'borrados') cargarBorrados();
   if (sec === 'ef') cargarEF();
   if (sec === 'temas') pintarTemas();
+  if (sec === 'festivos') pintarFest();
   try { history.replaceState(null, '', '#' + sec); } catch (e) {}
 }
 $$('nav.side button.nav').forEach(b => b.onclick = () => ir(b.dataset.sec));
@@ -720,7 +758,7 @@ async function cargarCobertura() {
 function pintarCobertura() {
   const d = diaHoy(), filtro = $('#aServ').value;
   const lista = servicios.filter(s => s.activo && (!filtro || s.id === filtro)).map(s => {
-    const req = reqDe(s)[d] || 0;
+    const req = cierreDe(s, hoyISO()) ? 0 : (reqDe(s)[d] || 0);
     const llegaron = new Set(entradasHoy.filter(r => r.servicio_id === s.id).map(r => r.empleado_id)).size;
     return { s, req, llegaron };
   }).filter(x => x.req > 0 || x.llegaron > 0);
@@ -859,6 +897,143 @@ async function borrarRegistro(r) {
 ['#aTipo', '#aTurno', '#aPuesto', '#aUbic', '#aCub'].forEach(sel => $(sel).onchange = () => pintarRegistros());
 $('#aLimpiar').onclick = () => { ['#aTipo', '#aTurno', '#aPuesto', '#aUbic'].forEach(sel => $(sel).value = ''); $('#aCub').checked = false; pintarRegistros(); };
 
+/* ---- EF: descargas PDF y Excel (lo que se ve con los filtros puestos) ---- */
+function efResumen(filas) {
+  const m = new Map();
+  filas.forEach(f => { const k = efServ(f.servicio_id); const r = m.get(k) || { servicio: k, act: 0, vac: 0 }; if (f.vacante) r.vac++; else r.act++; m.set(k, r); });
+  return [...m.values()].sort((a, b) => a.servicio.localeCompare(b.servicio, 'es'));
+}
+function efFiltrosTxt() {
+  const t = [], sv = $('#efServ').value, tu = $('#efTurno').value, es = $('#efEst').value;
+  if (sv) t.push(efServ(sv)); if (tu) t.push(tu); if (es) t.push(es === 'vac' ? 'Solo vacantes' : 'Solo activos');
+  return t.length ? t.join(' · ') : 'Todos los servicios';
+}
+const efProg = t => { const p = $('#efProg'); p.hidden = !t; p.textContent = t || ''; };
+$('#efXls').onclick = async () => {
+  if (!efVista.length) { efProg('No hay posiciones para descargar.'); return; }
+  const btn = $('#efXls'); btn.disabled = true;
+  try {
+    efProg('Generando Excel…');
+    const wb = new ExcelJS.Workbook(); wb.creator = 'SISERO';
+    const ws = wb.addWorksheet('EF', { views: [{ state: 'frozen', ySplit: 5 }] });
+    ws.mergeCells('A1:E1'); ws.getCell('A1').value = 'SISERO · EF · Estado de fuerza'; ws.getCell('A1').font = { bold: true, size: 15, color: { argb: 'FF0B2C55' } };
+    ws.mergeCells('A2:E2'); ws.getCell('A2').value = `${efFiltrosTxt()} · generado ${fGen.format(new Date())}`; ws.getCell('A2').font = { color: { argb: 'FF5B6470' } };
+    const act = efVista.filter(f => !f.vacante).length, vac = efVista.length - act;
+    ws.getCell('A3').value = `Activos: ${act}   ·   Vacantes: ${vac}   ·   Total: ${efVista.length}`; ws.getCell('A3').font = { bold: true };
+    ws.columns = [{ width: 34 }, { width: 22 }, { width: 12 }, { width: 28 }, { width: 12 }];
+    const head = ws.getRow(5); head.values = ['Nombre', 'Puesto', 'Turno', 'Servicio', 'Estatus']; head.height = 22;
+    head.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0B2C55' } }; c.alignment = { vertical: 'middle' }; });
+    efVista.forEach((f, i) => {
+      const r = ws.getRow(6 + i); r.values = [f.vacante ? 'Vacante' : f.nombre, f.puesto || '', f.turno || '', efServ(f.servicio_id), f.vacante ? 'Vacante' : 'Activo'];
+      r.eachCell(c => { c.border = { bottom: { style: 'thin', color: { argb: 'FFD5DBE3' } } }; });
+      if (f.vacante) r.eachCell(c => { c.font = { color: { argb: 'FFB3261E' }, bold: true }; });
+    });
+    ws.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5 + efVista.length, column: 5 } };
+    const w2 = wb.addWorksheet('Resumen por servicio'); w2.columns = [{ width: 32 }, { width: 12 }, { width: 12 }, { width: 12 }];
+    const h2 = w2.getRow(1); h2.values = ['Servicio', 'Activos', 'Vacantes', 'Total'];
+    h2.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0B2C55' } }; });
+    efResumen(efVista).forEach((x, i) => { w2.getRow(2 + i).values = [x.servicio, x.act, x.vac, x.act + x.vac]; });
+    const n = efResumen(efVista).length + 2; w2.getRow(n).values = ['TOTAL', act, vac, efVista.length]; w2.getRow(n).font = { bold: true };
+    const buf = await wb.xlsx.writeBuffer();
+    descargar(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `EF_${hoyISO()}.xlsx`);
+    efProg('');
+  } catch (e) { efProg('No se pudo generar el Excel: ' + e.message); }
+  finally { btn.disabled = false; }
+};
+$('#efPdf').onclick = async () => {
+  if (!efVista.length) { efProg('No hay posiciones para descargar.'); return; }
+  const btn = $('#efPdf'); btn.disabled = true;
+  try {
+    efProg('Generando PDF…');
+    const L = await cargarLogos();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
+    const navy = [11, 44, 85], muted = [91, 100, 112], bad = [179, 38, 30], ok = [29, 122, 74];
+    const ih = 15, iw = ih * L.icm.w / L.icm.h; doc.addImage(L.ic, 'PNG', M, M, iw, ih);
+    const th = 5.2, tw = th * L.txm.w / L.txm.h; doc.addImage(L.tx, 'PNG', M + iw + 4, M + 2.5, tw, th);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+    doc.text('SEGURIDAD PRIVADA · ESTADO DE FUERZA', M + iw + 4, M + 12.5);
+    doc.text(`Generado: ${fGen.format(new Date())}`, W - M, M + 5, { align: 'right' });
+    doc.setDrawColor(...navy); doc.setLineWidth(0.9); doc.line(M, M + 19, W - M, M + 19);
+    doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(17); doc.setTextColor(...navy); doc.text('EF · Estado de fuerza', M, M + 28);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 26, 34); doc.text(efFiltrosTxt(), M, M + 34);
+    const act = efVista.filter(f => !f.vacante).length, vac = efVista.length - act;
+    [['ACTIVOS', act, ok], ['VACANTES', vac, bad], ['TOTAL', efVista.length, navy]].forEach(([k, v, c], i) => {
+      const bw = (W - 2 * M - 6) / 3, x = M + i * (bw + 3), y = M + 39;
+      doc.setDrawColor(213, 219, 227); doc.setLineWidth(0.3); doc.roundedRect(x, y, bw, 15, 1.5, 1.5);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.8); doc.setTextColor(...muted); doc.text(k, x + 3, y + 5);
+      doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(14); doc.setTextColor(...c); doc.text(String(v), x + 3, y + 12.2);
+    });
+    doc.autoTable({
+      startY: M + 59, margin: { left: M, right: M, top: 14, bottom: 14 },
+      head: [['Nombre', 'Puesto', 'Turno', 'Servicio', 'Estatus']],
+      body: efVista.map(f => [f.vacante ? 'Vacante' : f.nombre, f.puesto || '', f.turno || '', efServ(f.servicio_id), f.vacante ? 'Vacante' : 'Activo']),
+      theme: 'grid', rowPageBreak: 'avoid',
+      styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.8, valign: 'middle', lineColor: [213, 219, 227], lineWidth: 0.2, textColor: [20, 26, 34] },
+      headStyles: { fillColor: navy, textColor: 255, fontStyle: 'bold' },
+      didParseCell: d => { if (d.section === 'body' && d.row.raw[4] === 'Vacante') { d.cell.styles.textColor = bad; d.cell.styles.fontStyle = 'bold'; } }
+    });
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 8, margin: { left: M, right: M, top: 14, bottom: 14 },
+      head: [['Resumen por servicio', 'Activos', 'Vacantes', 'Total']],
+      body: [...efResumen(efVista).map(x => [x.servicio, x.act, x.vac, x.act + x.vac]), ['TOTAL', act, vac, efVista.length]],
+      theme: 'grid', rowPageBreak: 'avoid',
+      styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.8, lineColor: [213, 219, 227], lineWidth: 0.2, textColor: [20, 26, 34] },
+      headStyles: { fillColor: [47, 106, 163], textColor: 255, fontStyle: 'bold' },
+      didParseCell: d => { if (d.section === 'body' && d.row.index === d.table.body.length - 1) d.cell.styles.fontStyle = 'bold'; }
+    });
+    const n = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...muted); doc.text(`Página ${i} de ${n}`, W - M, H - 7, { align: 'right' }); }
+    doc.save(`EF_${hoyISO()}.pdf`);
+    efProg('');
+  } catch (e) { efProg('No se pudo generar el PDF: ' + e.message); }
+  finally { btn.disabled = false; }
+};
+
+/* =================== FESTIVOS / DÍAS SIN SERVICIO =================== */
+function fvMsg(clase, t) { const m = $('#fvMsg'); m.className = 'msg ' + clase; m.textContent = t; m.hidden = !t; }
+function pintarFest() {
+  const B = $('#fvBody');
+  if (!cierres.length) { B.innerHTML = '<tr><td colspan="4" class="empty">No hay días sin servicio. Toca <b>+ Agregar día sin servicio</b> cuando un servicio no abra por un festivo.</td></tr>'; return; }
+  const lista = [...cierres].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  B.innerHTML = lista.map(c => { const d = String(c.fecha).slice(0, 10); const sv = c.servicio_id ? ((servicios.find(x => String(x.id) === String(c.servicio_id)) || {}).nombre || 'Servicio eliminado') : 'Todos los servicios';
+    return `<tr><td class="mono">${fechaCorta(d)} <span class="sub" style="font-family:var(--body)">${NOM_DIA[dowDe(d)]}</span></td><td>${esc(sv)}</td><td>${esc(c.motivo || '—')}</td><td style="text-align:right"><button class="btn sm" type="button" data-fvd="${c.id}" style="color:var(--bad)">Eliminar</button></td></tr>`; }).join('');
+  $$('#fvBody [data-fvd]').forEach(b => b.onclick = () => borrarFest(b.dataset.fvd));
+}
+$('#fvNuevo').onclick = () => {
+  $('#fvServ').innerHTML = '<option value="">Todos los servicios</option>' + servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+  $('#fvDesde').value = hoyISO(); $('#fvHasta').value = ''; $('#fvMotivo').value = ''; $('#fvMsg2').hidden = true; $('#fvGuardar').disabled = false;
+  $('#dFv').showModal();
+};
+$('#fvCancel').onclick = () => $('#dFv').close();
+$('#fFv').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const m = t => { $('#fvMsg2').textContent = t; $('#fvMsg2').hidden = false; };
+  const d1 = $('#fvDesde').value, d2 = $('#fvHasta').value || d1;
+  if (!d1) return m('Elige la fecha.');
+  if (d2 < d1) return m('La fecha final no puede ser antes de la inicial.');
+  const dias = []; for (let d = d1; d <= d2 && dias.length < 62; d = sumaDias(d, 1)) dias.push(d);
+  if (dias.length > 31) return m('Máximo 31 días seguidos por captura.');
+  const sv = $('#fvServ').value || null, motivo = $('#fvMotivo').value.trim() || null;
+  const filas = dias.filter(d => !cierres.some(c => String(c.fecha).slice(0, 10) === d && (c.servicio_id || null) === sv)).map(d => ({ fecha: d, servicio_id: sv, motivo }));
+  if (!filas.length) return m('Esa fecha ya estaba registrada para ese servicio.');
+  $('#fvGuardar').disabled = true;
+  const { error } = await sb.from('dias_sin_servicio').insert(filas);
+  if (error) { $('#fvGuardar').disabled = false; return m('No se pudo guardar: ' + (/dias_sin_servicio|schema cache|does not exist/i.test(error.message || '') ? 'falta correr sql/15_dias_sin_servicio.sql en Supabase.' : error.message)); }
+  $('#dFv').close(); await cargarCatalogos(); pintarFest();
+  fvMsg('ok', `Listo: ${filas.length} día${filas.length === 1 ? '' : 's'} sin servicio. La cobertura de esas fechas queda en 0.`);
+  if (!$('#secCobertura').hidden) cargarCob();
+});
+async function borrarFest(id) {
+  const c = cierres.find(x => String(x.id) === String(id)); if (!c) return;
+  if (!confirm(`¿Quitar este día sin servicio?\n\n${fechaCorta(String(c.fecha).slice(0, 10))} · ${c.motivo || ''}\n\nEse día volverá a contar con sus requeridos normales.`)) return;
+  const { error } = await sb.from('dias_sin_servicio').delete().eq('id', c.id);
+  if (error) { fvMsg('bad', 'No se pudo quitar: ' + error.message); return; }
+  await cargarCatalogos(); pintarFest(); fvMsg('', '');
+  if (!$('#secCobertura').hidden) cargarCob();
+}
+
 /* =================== TEMAS =================== */
 let tmActivo = null;
 function tmMsg(clase, txt) { const m = $('#tmMsg'); m.className = 'msg ' + clase; m.textContent = txt; m.hidden = !txt; }
@@ -896,7 +1071,7 @@ const VAC = '__vacante';
 // "Servicios" especiales de la plantilla (no son servicios reales; sirven para ubicar a los guardias cubre)
 const EF_ESP = [{ id: '__cubre_descansos', nombre: 'Cubre descansos' }, { id: '__cubre_incidencias', nombre: 'Cubre incidencias' }];
 const efTipo = f => f.vacante ? 'vac' : 'act';
-let efFilas = [], efEdit = null;
+let efFilas = [], efEdit = null, efVista = [];
 const efServ = id => (EF_ESP.find(x => x.id === id) || servicios.find(x => String(x.id) === String(id)) || {}).nombre || 'Sin asignar';
 
 async function cargarEF() {
@@ -920,6 +1095,7 @@ function pintarEF() {
   const ord = { act: 0, vac: 1 };
   const lista = base.filter(f => !es || efTipo(f) === es)
     .sort((a, b) => efServ(a.servicio_id).localeCompare(efServ(b.servicio_id), 'es') || EF_TURNOS.indexOf(a.turno) - EF_TURNOS.indexOf(b.turno) || (ord[efTipo(a)] - ord[efTipo(b)]) || a.nombre.localeCompare(b.nombre, 'es'));
+  efVista = lista;
   $('#efSub').textContent = `Mostrando ${lista.length} de ${efFilas.length} posiciones`;
   const B = $('#efBody');
   if (!efFilas.length) { B.innerHTML = '<tr><td colspan="5" class="empty">Todavía no hay posiciones. Toca <b>+ Agregar</b> para empezar.</td></tr>'; return; }
@@ -1228,7 +1404,7 @@ function calcularNoc(D, ids, regs) {
   const ini = new Date(horaISO(D, NOCHE_INI)).getTime(), fin = new Date(horaISO(sumaDias(D, 1), NOCHE_FIN)).getTime(), dia = new Date(horaISO(D, NOCHE_FIN)).getTime();
   const dow = dowDe(D);
   const grupos = ids.map(id => {
-    const s = servicios.find(x => x.id === id), req = reqNoche(s)[dow] || 0;
+    const s = servicios.find(x => x.id === id), req = cierreDe(s, D) ? 0 : (reqNoche(s)[dow] || 0);
     const vistos = new Set(), filas = [];
     regs.filter(r => r.servicio_id === id && r.tipo === 'Entrada').forEach(r => {
       const t = new Date(r.fecha_hora).getTime();
@@ -1399,7 +1575,7 @@ function calcularCob(D, regs, incs) {
     regs = regs.filter(x => x.tipo !== 'Entrada' || entradasOk.has(x.id));
   }
   const filas = (cobNoche ? serviciosNoche() : servicios).filter(s => !filtro || s.id === filtro).map(s => {
-    const req = s.activo ? ((cobNoche ? reqNoche(s) : reqDe(s))[dow] || 0) : 0;
+    const req = s.activo ? (cierreDe(s, D) ? 0 : ((cobNoche ? reqNoche(s) : reqDe(s))[dow] || 0)) : 0;
     const primeras = new Map();                       // empleado → primera entrada del día
     regs.filter(x => x.servicio_id === s.id && x.tipo === 'Entrada').forEach(x => { if (!primeras.has(x.empleado_id)) primeras.set(x.empleado_id, x); });
     const llegadas = [...primeras.values()].sort((a, b) => a.fecha_hora.localeCompare(b.fecha_hora));
@@ -1445,6 +1621,7 @@ function pintarCob() {
   const hoy = c.D === hoyISO();
   if (cobNoche) $('#kSub').textContent = `${nocheTxt(c.D)} · elementos que checaron entrada de noche contra los requeridos de noche`;
   else $('#kSub').textContent = `${NOM_DIA[dowDe(c.D)][0].toUpperCase() + NOM_DIA[dowDe(c.D)].slice(1)} ${fechaCorta(c.D)} · elementos distintos que checaron entrada contra los requeridos del día${hoy ? ' · los turnos de la noche se suman cuando chequen' : ''}`;
+  { const cz = cierres.filter(x => String(x.fecha).slice(0, 10) === c.D); if (cz.length) $('#kSub').textContent += ' · Sin servicio ese día: ' + cz.map(x => (x.servicio_id ? ((servicios.find(v => String(v.id) === String(x.servicio_id)) || {}).nombre || 'un servicio') : 'todos los servicios') + (x.motivo ? ' (' + x.motivo + ')' : '')).join(', '); }
   $('#kComp').textContent = c.comp; $('#kCub').textContent = c.cub; $('#kFal').textContent = c.fal; $('#kAdi').textContent = c.adi;
   $('#kCubPct').textContent = `${pctCob(c)}% de cobertura`;
   const max = Math.max(1, ...c.filas.map(f => Math.max(f.req, f.pres)));
