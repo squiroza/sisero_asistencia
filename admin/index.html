@@ -243,7 +243,6 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap">
           <div class="card kpi" style="border-top-color:var(--ok);min-width:120px"><span>Activos</span><b id="efAct" style="color:var(--ok)">0</b></div>
           <div class="card kpi" style="border-top-color:var(--bad);min-width:120px"><span>Vacantes</span><b id="efVac" style="color:var(--bad)">0</b></div>
-          <div class="card kpi" style="border-top-color:var(--warn);min-width:120px"><span>Cubre descansos</span><b id="efCub" style="color:var(--warn)">0</b></div>
           <button class="btn primary" id="efNuevo" type="button" style="align-self:center">+ Agregar</button>
         </div>
       </div>
@@ -251,7 +250,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <label class="f" style="flex:2 1 220px"><input id="efQ" type="search" placeholder="Buscar por nombre o puesto"></label>
         <label class="f" style="flex:1 1 200px"><select id="efServ"><option value="">Todos los servicios</option></select></label>
         <label class="f" style="flex:1 1 150px"><select id="efTurno"><option value="">Todos los turnos</option><option>24x24 A</option><option>24x24 B</option><option>12x12 D</option><option>12x12 N</option><option>12x36</option><option>12x24</option></select></label>
-        <label class="f" style="flex:1 1 150px"><select id="efEst"><option value="">Todos</option><option value="act">Solo activos</option><option value="vac">Solo vacantes</option><option value="cub">Solo cubre descansos</option></select></label>
+        <label class="f" style="flex:1 1 150px"><select id="efEst"><option value="">Activos y vacantes</option><option value="act">Solo activos</option><option value="vac">Solo vacantes</option></select></label>
       </div>
       <div class="card tablebox">
         <table style="min-width:760px">
@@ -848,21 +847,23 @@ $('#aLimpiar').onclick = () => { ['#aTipo', '#aTurno', '#aPuesto', '#aUbic'].for
 
 /* =================== EF (plantilla de fuerza) =================== */
 const EF_TURNOS = ['24x24 A', '24x24 B', '12x12 D', '12x12 N', '12x36', '12x24'];
-const VAC = '__vacante', CUB = '__cubre';
-const efTipo = f => f.vacante ? 'vac' : f.cubre_descansos ? 'cub' : 'act';
+const VAC = '__vacante';
+// "Servicios" especiales de la plantilla (no son servicios reales; sirven para ubicar a los guardias cubre)
+const EF_ESP = [{ id: '__cubre_descansos', nombre: 'Cubre descansos' }, { id: '__cubre_incidencias', nombre: 'Cubre incidencias' }];
+const efTipo = f => f.vacante ? 'vac' : 'act';
 let efFilas = [], efEdit = null;
-const efServ = id => (servicios.find(x => String(x.id) === String(id)) || {}).nombre || 'Sin asignar';
+const efServ = id => (EF_ESP.find(x => x.id === id) || servicios.find(x => String(x.id) === String(id)) || {}).nombre || 'Sin asignar';
 
 async function cargarEF() {
   const B = $('#efBody');
   const { data, error } = await sb.from('plantilla_ef').select('*').order('creado_en', { ascending: true });
   if (error) {
-    B.innerHTML = `<tr><td colspan="5" class="empty">No se pudo cargar: ${esc(/plantilla_ef|schema cache|does not exist/i.test(error.message || '') ? 'falta correr sql/13_plantilla_ef.sql y sql/14_ef_cubre_descansos.sql en Supabase.' : error.message)}</td></tr>`;
+    B.innerHTML = `<tr><td colspan="5" class="empty">No se pudo cargar: ${esc(/plantilla_ef|schema cache|does not exist/i.test(error.message || '') ? 'falta correr sql/13_plantilla_ef.sql en Supabase.' : error.message)}</td></tr>`;
     return;
   }
   efFilas = data || [];
   // lista de servicios para el filtro (conserva la selección)
-  { const sp = $('#efServ'), v = sp.value; sp.innerHTML = '<option value="">Todos los servicios</option>' + servicios.map(x => `<option value="${x.id}">${esc(x.nombre)}${x.activo ? '' : ' (inactivo)'}</option>`).join(''); if ([...sp.options].some(o => o.value === v)) sp.value = v; }
+  { const sp = $('#efServ'), v = sp.value; sp.innerHTML = '<option value="">Todos los servicios</option>' + EF_ESP.map(x => `<option value="${x.id}">${x.nombre}</option>`).join('') + servicios.map(x => `<option value="${x.id}">${esc(x.nombre)}${x.activo ? '' : ' (inactivo)'}</option>`).join(''); if ([...sp.options].some(o => o.value === v)) sp.value = v; }
   pintarEF();
 }
 function pintarEF() {
@@ -871,8 +872,7 @@ function pintarEF() {
   // Los contadores respetan servicio, turno y búsqueda (no el filtro de estatus)
   $('#efAct').textContent = base.filter(f => efTipo(f) === 'act').length;
   $('#efVac').textContent = base.filter(f => efTipo(f) === 'vac').length;
-  $('#efCub').textContent = base.filter(f => efTipo(f) === 'cub').length;
-  const ord = { act: 0, cub: 1, vac: 2 };
+  const ord = { act: 0, vac: 1 };
   const lista = base.filter(f => !es || efTipo(f) === es)
     .sort((a, b) => efServ(a.servicio_id).localeCompare(efServ(b.servicio_id), 'es') || EF_TURNOS.indexOf(a.turno) - EF_TURNOS.indexOf(b.turno) || (ord[efTipo(a)] - ord[efTipo(b)]) || a.nombre.localeCompare(b.nombre, 'es'));
   $('#efSub').textContent = `Mostrando ${lista.length} de ${efFilas.length} posiciones`;
@@ -880,7 +880,7 @@ function pintarEF() {
   if (!efFilas.length) { B.innerHTML = '<tr><td colspan="5" class="empty">Todavía no hay posiciones. Toca <b>+ Agregar</b> para empezar.</td></tr>'; return; }
   if (!lista.length) { B.innerHTML = '<tr><td colspan="5" class="empty">Ninguna posición coincide con los filtros.</td></tr>'; return; }
   B.innerHTML = lista.map(f => `<tr>
-    <td>${f.vacante ? '<span class="tag bad">Vacante</span>' : f.cubre_descansos ? '<span class="tag warn">Cubre descansos</span>' : `<b style="font-weight:600">${esc(f.nombre)}</b>`}</td>
+    <td>${f.vacante ? '<span class="tag bad">Vacante</span>' : `<b style="font-weight:600">${esc(f.nombre)}</b>`}</td>
     <td>${esc(f.puesto || '')}</td><td class="mono">${esc(f.turno || '—')}</td><td>${esc(efServ(f.servicio_id))}</td>
     <td style="text-align:right;white-space:nowrap"><button class="btn sm" type="button" data-efe="${f.id}">Editar</button> <button class="btn sm" type="button" data-efd="${f.id}" style="color:var(--bad)">Eliminar</button></td></tr>`).join('');
   $$('#efBody [data-efe]').forEach(b => b.onclick = () => abrirEF(efFilas.find(x => x.id === b.dataset.efe)));
@@ -893,9 +893,9 @@ function abrirEF(f) {
   $('#efTitulo').textContent = f ? 'Editar posición' : 'Agregar a la plantilla';
   $('#efOtro').hidden = !!f;
   const activos = empleados.filter(e => e.activo || (f && String(e.id) === String(f.empleado_id))).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  $('#efNombre').innerHTML = `<option value="${VAC}">Vacante</option><option value="${CUB}">Cubre descansos</option>` + activos.map(e => `<option value="${e.id}">${esc(e.nombre)}${e.numero ? ' · #' + esc(e.numero) : ''}</option>`).join('');
-  $('#efServF').innerHTML = '<option value="">Sin asignar</option>' + servicios.filter(x => x.activo || (f && String(x.id) === String(f.servicio_id))).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
-  $('#efNombre').value = f ? (f.vacante ? VAC : f.cubre_descansos ? CUB : String(f.empleado_id)) : VAC;
+  $('#efNombre').innerHTML = `<option value="${VAC}">Vacante</option>` + activos.map(e => `<option value="${e.id}">${esc(e.nombre)}${e.numero ? ' · #' + esc(e.numero) : ''}</option>`).join('');
+  $('#efServF').innerHTML = '<option value="">Sin asignar</option>' + EF_ESP.map(x => `<option value="${x.id}">${x.nombre}</option>`).join('') + servicios.filter(x => x.activo || (f && String(x.id) === String(f.servicio_id))).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+  $('#efNombre').value = f ? (f.vacante ? VAC : String(f.empleado_id)) : VAC;
   $('#efPuesto').value = f ? f.puesto || '' : '';
   $('#efTurnoF').value = f ? f.turno || '' : '';
   $('#efServF').value = f ? f.servicio_id || '' : ($('#efServ').value || '');
@@ -905,7 +905,6 @@ function abrirEF(f) {
 // Al elegir un elemento nuevo, propone su puesto, turno y servicio (si el campo está vacío)
 $('#efNombre').onchange = () => {
   if (efEdit) return;
-  if ($('#efNombre').value === CUB && !$('#efPuesto').value.trim()) $('#efPuesto').value = 'Cubre descansos';
   const e = empleados.find(x => String(x.id) === $('#efNombre').value); if (!e) return;
   if (!$('#efPuesto').value.trim()) $('#efPuesto').value = e.puesto || '';
   if (!$('#efTurnoF').value && EF_TURNOS.includes(e.turno)) $('#efTurnoF').value = e.turno;
@@ -916,8 +915,8 @@ $('#efCancel').onclick = () => $('#dEF').close();
 
 async function guardarEF(otro) {
   const m = t => { $('#efMsg').textContent = t; $('#efMsg').hidden = false; };
-  const v = $('#efNombre').value, vac = v === VAC, cub = v === CUB, e = (vac || cub) ? null : empleados.find(x => String(x.id) === v);
-  const fila = { nombre: vac ? 'Vacante' : cub ? 'Cubre descansos' : (e ? e.nombre : ''), empleado_id: (vac || cub) ? null : v, vacante: vac, cubre_descansos: cub, puesto: $('#efPuesto').value.trim().replace(/\s+/g, ' '), turno: $('#efTurnoF').value || null, servicio_id: $('#efServF').value || null };
+  const v = $('#efNombre').value, vac = v === VAC, e = vac ? null : empleados.find(x => String(x.id) === v);
+  const fila = { nombre: vac ? 'Vacante' : (e ? e.nombre : ''), empleado_id: vac ? null : v, vacante: vac, puesto: $('#efPuesto').value.trim().replace(/\s+/g, ' '), turno: $('#efTurnoF').value || null, servicio_id: $('#efServF').value || null };
   if (!fila.puesto) return m('Escribe el puesto.');
   if (!fila.turno) return m('Elige el turno.');
   if (!fila.servicio_id) return m('Elige el servicio.');
@@ -928,7 +927,7 @@ async function guardarEF(otro) {
     await cargarEF();
     if (otro) { const sv = fila.servicio_id, tu = fila.turno; abrirEF(null); $('#efServF').value = sv; $('#efTurnoF').value = tu; $('#efPuesto').focus(); }
     else $('#dEF').close();
-  } catch (err) { m('No se pudo guardar: ' + (/plantilla_ef|schema cache|does not exist/i.test(err.message || '') ? 'falta correr sql/13_plantilla_ef.sql y sql/14_ef_cubre_descansos.sql en Supabase.' : err.message)); }
+  } catch (err) { m('No se pudo guardar: ' + (/plantilla_ef|schema cache|does not exist/i.test(err.message || '') ? 'falta correr sql/13_plantilla_ef.sql en Supabase.' : err.message)); }
   finally { $('#efGuardar').disabled = false; $('#efOtro').disabled = false; }
 }
 $('#fEF').addEventListener('submit', ev => { ev.preventDefault(); guardarEF(false); });
