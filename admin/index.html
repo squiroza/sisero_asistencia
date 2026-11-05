@@ -175,7 +175,6 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <button class="nav" data-sec="nocturna">Asistencia nocturna</button>
     <button class="nav" data-sec="cobertura">Cobertura</button>
     <button class="nav" data-sec="coberturaNoche">Cobertura nocturna</button>
-    <button class="nav" data-sec="fuerza">Estado de fuerza</button>
     <button class="nav" data-sec="elementos">Elementos</button>
     <button class="nav" data-sec="servicios">Servicios</button>
     <button class="nav" data-sec="celulares">Celulares</button>
@@ -232,40 +231,6 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
         <table style="min-width:980px">
           <thead><tr><th>Foto</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Turno</th><th>Elemento</th><th>Puesto</th><th>Servicio</th><th>Ubicación</th></tr></thead>
           <tbody id="aBody"><tr><td colspan="9" class="empty">Cargando registros…</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ================= ESTADO DE FUERZA ================= -->
-    <section id="secFuerza" hidden style="display:flex;flex-direction:column;gap:18px">
-      <div class="head">
-        <div><h1>Estado de fuerza</h1><div class="sub" id="efSub">Quién le toca checar y quién falta</div></div>
-        <span class="tag mut" id="efVivo"></span>
-      </div>
-      <div class="card filters">
-        <label class="f">Día<input id="efFecha" type="date"></label>
-        <div style="display:flex;gap:6px"><button class="btn sm" type="button" id="efAnt" aria-label="Día anterior">◀</button><button class="btn sm" type="button" id="efHoy">Hoy</button><button class="btn sm" type="button" id="efSig" aria-label="Día siguiente">▶</button></div>
-        <label class="f">Grupo que trabaja ese día<select id="efGrupo"><option value="A">Grupo A</option><option value="B">Grupo B</option></select></label>
-        <label class="f" style="flex:1 1 200px">Servicio<select id="efServ"><option value="">Todos los servicios</option></select></label>
-        <button class="btn outline" id="efCopiar" type="button">Copiar faltantes</button>
-      </div>
-      <div class="progress" id="efProg" hidden></div>
-      <div class="kpis">
-        <div class="card kpi"><span>Esperados</span><b id="efEsp">0</b></div>
-        <div class="card kpi" style="border-top-color:var(--ok)"><span>Ya checaron</span><b id="efPre" style="color:var(--ok)">0</b></div>
-        <div class="card kpi" style="border-top-color:var(--bad)"><span>Faltan de checar</span><b id="efFal" style="color:var(--bad)">0</b></div>
-        <div class="card kpi" style="border-top-color:var(--warn)"><span>Con incidencia</span><b id="efInc" style="color:var(--warn)">0</b></div>
-      </div>
-      <div class="card tablebox">
-        <table style="min-width:760px">
-          <thead><tr><th>Elemento</th><th>Puesto</th><th>Servicio base</th><th>Estatus</th></tr></thead>
-          <tbody id="efBody"><tr><td colspan="4" class="empty">Cargando…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="card tablebox" id="efOtrosBox" hidden>
-        <table style="min-width:760px">
-          <thead><tr><th colspan="4">Checaron ese día sin ser del grupo</th></tr></thead>
-          <tbody id="efOtros"></tbody>
         </table>
       </div>
     </section>
@@ -463,6 +428,25 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
 </dialog>
 <datalist id="dlPuestos"><option value="Guardia"><option value="Guardia armado"><option value="Jefe de turno"><option value="Jefe de Servicio"><option value="Coordinador"><option value="Coordinadora"><option value="Supervisor"><option value="Escolta"><option value="Monitorista"></datalist>
 
+<!-- Diálogo oculto: editar / borrar un registro de asistencia -->
+<dialog id="dReg">
+  <form class="dlg" id="fReg" method="dialog" novalidate>
+    <h2>Editar registro</h2>
+    <div class="sub" id="rgQuien" style="margin-top:-6px"></div>
+    <div class="grid2">
+      <label class="f">Tipo<select id="rgTipo"><option>Entrada</option><option>Salida</option></select></label>
+      <label class="f">Turno<select id="rgTurno"><option value="">Sin turno</option><option>12x12 D</option><option>12x12 N</option><option>24x24 A</option><option>24x24 B</option><option>24x24</option><option>12x24</option><option>12x36</option></select></label>
+      <label class="f full">Servicio donde queda el registro<select id="rgServ"></select></label>
+      <label class="f full">Fecha y hora<input id="rgFecha" type="datetime-local" required></label>
+    </div>
+    <div id="rgMsg" class="msg bad" hidden></div>
+    <div class="actions" style="justify-content:space-between">
+      <button class="btn" type="button" id="rgBorrar" style="color:var(--bad)">Borrar</button>
+      <span style="display:flex;gap:8px"><button class="btn" type="button" id="rgCancel">Cancelar</button><button class="btn primary" type="submit" id="rgGuardar">Guardar cambios</button></span>
+    </div>
+  </form>
+</dialog>
+
 <!-- Diálogo: servicio -->
 <dialog id="dServ">
   <form class="dlg" id="fServ" method="dialog" novalidate>
@@ -627,7 +611,7 @@ const etiquetaEmp = e => e.nombre + (e.numero ? ' · No. ' + e.numero : '') + (e
 const empPorEtiqueta = t => { t = (t || '').trim(); if (!t) return null; return empleados.find(e => etiquetaEmp(e) === t) || empleados.find(e => norm(e.nombre) === norm(t)) || undefined; };
 
 /* ---------- navegación ---------- */
-const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares', borrados: '#secBorrados', fuerza: '#secFuerza' };
+const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares', borrados: '#secBorrados' };
 function ir(sec) {
   Object.values(secs).forEach(s => { $(s).hidden = s !== secs[sec]; });
   $$('nav.side button.nav').forEach(b => b.setAttribute('aria-current', b.dataset.sec === sec ? 'page' : 'false'));
@@ -637,7 +621,6 @@ function ir(sec) {
   if (sec === 'servicios') pintarServicios();
   if (sec === 'celulares') pintarCelulares();
   if (sec === 'borrados') cargarBorrados();
-  if (sec === 'fuerza') iniciarFuerza();
   try { history.replaceState(null, '', '#' + sec); } catch (e) {}
 }
 $$('nav.side button.nav').forEach(b => b.onclick = () => ir(b.dataset.sec));
@@ -761,16 +744,50 @@ async function pintarRegistros() {
 }
 /* ---------- borrado discreto de un registro ----------
    Sin botón visible: mantener presionada la HORA del registro ~1.2 s (o doble clic en computadora).
-   Funciona en Asistencia y en Asistencia nocturna (hora de Entrada o de Salida). */
+   Funciona en Asistencia y en Asistencia nocturna (hora de Entrada o de Salida).
+   Abre un diálogo para EDITAR (tipo, turno, servicio, fecha y hora) o BORRAR el registro. */
 function armarBorrado(td, r) {
   if (!r) return;
   let t = null;
   const parar = () => { clearTimeout(t); t = null; };
-  td.addEventListener('pointerdown', () => { parar(); t = setTimeout(() => { t = null; borrarRegistro(r); }, 1200); });
+  td.addEventListener('pointerdown', () => { parar(); t = setTimeout(() => { t = null; abrirRegistro(r); }, 1200); });
   ['pointerup', 'pointerleave', 'pointercancel', 'pointermove'].forEach(ev => td.addEventListener(ev, parar));
   td.addEventListener('contextmenu', e => e.preventDefault());
-  td.addEventListener('dblclick', () => { parar(); borrarRegistro(r); });
+  td.addEventListener('dblclick', () => { parar(); abrirRegistro(r); });
 }
+const fHM23 = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+let regEdit = null;
+function abrirRegistro(r) {
+  if (!r) return;
+  regEdit = r;
+  const d = new Date(r.fecha_hora);
+  $('#rgQuien').textContent = `${r.empleado || ''}${r.puesto ? ' · ' + r.puesto : ''}`;
+  $('#rgTipo').value = r.tipo || 'Entrada';
+  $('#rgTurno').value = r.turno || '';
+  const opts = servicios.filter(x => x.activo || x.id === r.servicio_id).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+  $('#rgServ').innerHTML = opts; $('#rgServ').value = r.servicio_id;
+  $('#rgFecha').value = fDiaISO.format(d) + 'T' + fHM23.format(d);
+  $('#rgMsg').hidden = true; $('#rgGuardar').disabled = false;
+  $('#dReg').showModal();
+}
+$('#rgCancel').onclick = () => $('#dReg').close();
+$('#rgBorrar').onclick = async () => { const r = regEdit; $('#dReg').close(); await borrarRegistro(r); };
+$('#fReg').addEventListener('submit', async e => {
+  e.preventDefault();
+  const r = regEdit, v = $('#rgFecha').value, m = $('#rgMsg');
+  if (!r || !v) { m.textContent = 'Escribe la fecha y la hora.'; m.hidden = false; return; }
+  $('#rgGuardar').disabled = true;
+  const { error } = await sb.rpc('editar_registro', { p_id: String(r.id), p_servicio: String($('#rgServ').value), p_tipo: $('#rgTipo').value, p_turno: $('#rgTurno').value, p_fecha: `${v}:00${offset(v.slice(0, 10))}` });
+  if (error) {
+    const x = error.message || '';
+    m.textContent = 'No se pudo guardar: ' + (/NO_ADMIN/.test(x) ? 'esta cuenta no es administrador.' : /REGISTRO_NO_ENCONTRADO/.test(x) ? 'el registro ya no existe.' : /editar_registro|schema cache/i.test(x) ? 'falta correr sql/12_editar_registro.sql en Supabase.' : x);
+    m.hidden = false; $('#rgGuardar').disabled = false; return;
+  }
+  $('#dReg').close();
+  await cargarRegistros();
+  if (!$('#secNocturna').hidden) cargarNoc();
+  if (!$('#secCobertura').hidden) cargarCob();
+});
 async function borrarRegistro(r) {
   const d = new Date(r.fecha_hora);
   if (!confirm(`¿BORRAR este registro de la base de datos?\n\n${r.tipo} · ${r.empleado}\n${r.servicio}\n${fFecha.format(d)} ${fHora.format(d)}\n\nDesaparece de la lista, los reportes y la cobertura.`)) return;
@@ -786,83 +803,6 @@ async function borrarRegistro(r) {
 }
 ['#aTipo', '#aTurno', '#aPuesto', '#aUbic', '#aCub'].forEach(sel => $(sel).onchange = () => pintarRegistros());
 $('#aLimpiar').onclick = () => { ['#aTipo', '#aTurno', '#aPuesto', '#aUbic'].forEach(sel => $(sel).value = ''); $('#aCub').checked = false; pintarRegistros(); };
-
-/* =================== ESTADO DE FUERZA (grupos 24x24 A / B) =================== */
-// El grupo que trabaja se alterna cada día. Se guarda un día de referencia en este navegador:
-// al elegir "Grupo que trabaja ese día", el sistema calcula solo los demás días.
-const GRUPO_KEY = 'sisero_grupo_ancla';
-const grupoDe = t => { const m = /^24\s*x\s*24\s*([AB])$/i.exec((t || '').trim()); return m ? m[1].toUpperCase() : null; };
-const diasEntre = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5);
-function grupoDelDia(D) {
-  let a = null; try { a = JSON.parse(localStorage.getItem(GRUPO_KEY) || 'null'); } catch (e) {}
-  if (!a || !a.fecha || !a.grupo) return null;
-  const par = diasEntre(a.fecha, D) % 2 === 0;
-  return par ? a.grupo : (a.grupo === 'A' ? 'B' : 'A');
-}
-let efFaltantes = [], efCargando = false, efListo = false;
-function iniciarFuerza() {
-  const sel = $('#efServ'), v = sel.value;
-  sel.innerHTML = '<option value="">Todos los servicios</option>' + servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
-  if ([...sel.options].some(o => o.value === v)) sel.value = v;
-  if (!$('#efFecha').value) $('#efFecha').value = hoyISO();
-  efListo = true; ponerGrupo(); cargarFuerza();
-}
-function ponerGrupo() { const g = grupoDelDia($('#efFecha').value); if (g) $('#efGrupo').value = g; }
-$('#efFecha').onchange = () => { ponerGrupo(); cargarFuerza(); };
-$('#efAnt').onclick = () => { $('#efFecha').value = sumaDias($('#efFecha').value || hoyISO(), -1); ponerGrupo(); cargarFuerza(); };
-$('#efSig').onclick = () => { $('#efFecha').value = sumaDias($('#efFecha').value || hoyISO(), 1); ponerGrupo(); cargarFuerza(); };
-$('#efHoy').onclick = () => { $('#efFecha').value = hoyISO(); ponerGrupo(); cargarFuerza(); };
-$('#efServ').onchange = () => cargarFuerza();
-$('#efGrupo').onchange = () => {
-  localStorage.setItem(GRUPO_KEY, JSON.stringify({ fecha: $('#efFecha').value || hoyISO(), grupo: $('#efGrupo').value }));
-  cargarFuerza();
-};
-$('#efCopiar').onclick = async () => {
-  const D = $('#efFecha').value, g = $('#efGrupo').value;
-  const txt = efFaltantes.length ? `Faltan de checar · Grupo ${g} · ${fechaCorta(D)}\n` + efFaltantes.map(x => `- ${x.nombre} (${x.servicio || 'sin servicio'})`).join('\n') : `Grupo ${g} · ${fechaCorta(D)}: todos checaron.`;
-  try { await navigator.clipboard.writeText(txt); $('#efVivo').textContent = 'Copiado'; } catch (e) { prompt('Copia el texto:', txt); }
-};
-
-async function cargarFuerza() {
-  if (!efListo || efCargando) return; efCargando = true;
-  const D = $('#efFecha').value || hoyISO(), g = $('#efGrupo').value, filtro = $('#efServ').value;
-  const prog = t => { const p = $('#efProg'); p.hidden = !t; p.textContent = t || ''; };
-  try {
-    const [r, i] = await Promise.all([
-      sb.from('v_registros').select('*').gte('fecha_hora', inicioDia(D)).lt('fecha_hora', inicioDia(sumaDias(D, 1))).order('fecha_hora', { ascending: true }).limit(5000),
-      sb.from('incidencias').select('*').eq('fecha', D)
-    ]);
-    if (r.error) throw r.error;
-    const regs = r.data || [], incs = i.error ? [] : (i.data || []);
-    const esperados = empleados.filter(e => e.activo && grupoDe(e.turno) === g && (!filtro || e.servicio_base_id === filtro));
-    const ids = new Set(esperados.map(e => e.id));
-    const ultima = new Map(), primera = new Map();
-    regs.forEach(x => { ultima.set(x.empleado_id, x); if (x.tipo === 'Entrada' && !primera.has(x.empleado_id)) primera.set(x.empleado_id, x); });
-    const filas = esperados.map(e => {
-      const en = primera.get(e.id), u = ultima.get(e.id), inc = incs.find(x => x.empleado_id === e.id);
-      let est, clase, orden;
-      if (en) {
-        const otro = en.servicio_id !== e.servicio_base_id ? ` · en ${en.servicio}` : '';
-        if (u && u.tipo === 'Salida') { est = `Salió ${fHM.format(new Date(u.fecha_hora))}${otro}`; clase = 'mut'; orden = 3; }
-        else { est = `En turno desde ${fHM.format(new Date(en.fecha_hora))}${otro}`; clase = 'ok'; orden = 2; }
-      } else if (inc) { est = `${inc.tipo}`; clase = 'warn'; orden = 4; }
-      else { est = 'Sin checar'; clase = 'bad'; orden = 1; }
-      return { e, est, clase, orden, presente: !!en, inc: !en && !!inc };
-    }).sort((a, b) => a.orden - b.orden || a.e.nombre.localeCompare(b.e.nombre));
-    efFaltantes = filas.filter(f => f.orden === 1).map(f => ({ nombre: f.e.nombre, servicio: nombreServ(f.e.servicio_base_id) }));
-    const pre = filas.filter(f => f.presente).length, inc = filas.filter(f => f.inc).length;
-    $('#efEsp').textContent = filas.length; $('#efPre').textContent = pre; $('#efFal').textContent = efFaltantes.length; $('#efInc').textContent = inc;
-    const sinGrupo = !grupoDelDia(D);
-    $('#efSub').textContent = `${fechaCorta(D)} · Grupo ${g} (24x24 ${g})` + (sinGrupo ? ' · elige arriba qué grupo trabaja este día y el sistema alterna solo' : '');
-    $('#efBody').innerHTML = filas.length ? filas.map(f => `<tr><td><b style="font-weight:600">${esc(f.e.nombre)}</b>${f.e.numero ? ` <span class="mono sub" style="font-size:13px">#${esc(f.e.numero)}</span>` : ''}</td><td>${esc(f.e.puesto)}</td><td>${esc(nombreServ(f.e.servicio_base_id) || 'Sin asignar')}</td><td><span class="tag ${f.clase}">${esc(f.est)}</span></td></tr>`).join('')
-      : `<tr><td colspan="4" class="empty">No hay elementos activos con turno “24x24 ${g}”. Ve a Elementos → Editar y elige el turno “24x24 ${g}”.</td></tr>`;
-    const otros = [...primera.values()].filter(x => !ids.has(x.empleado_id) && (!filtro || x.servicio_id === filtro));
-    $('#efOtrosBox').hidden = !otros.length;
-    $('#efOtros').innerHTML = otros.map(x => { const e = empDe(x.empleado_id); const gr = e ? grupoDe(e.turno) : null; return `<tr><td><b style="font-weight:600">${esc(x.empleado)}</b></td><td>${esc(x.puesto || '')}</td><td>${esc(x.servicio)}</td><td><span class="tag mut">Entró ${fHM.format(new Date(x.fecha_hora))}${gr ? ' · es del grupo ' + gr : (e && e.turno ? ' · turno ' + esc(e.turno) : '')}</span></td></tr>`; }).join('');
-    prog(''); $('#efVivo').textContent = 'Actualizado ' + fHM.format(new Date());
-  } catch (e) { prog('No se pudo cargar el estado de fuerza: ' + e.message); }
-  finally { efCargando = false; }
-}
 
 /* =================== BORRADOS =================== */
 let borrados = [];
@@ -914,7 +854,6 @@ function refrescarVivo() {
   cargarRegistros();
   if (!$('#secCobertura').hidden && (cobNoche || $('#kFecha').value === hoyISO())) cargarCob();
   if (!$('#secNocturna').hidden) cargarNoc();
-  if (!$('#secFuerza').hidden && $('#efFecha').value === hoyISO()) cargarFuerza();
 }
 let vivoIntervalo = null;
 document.addEventListener('visibilitychange', () => { if (!document.hidden && canal) refrescarVivo(); });   // al volver a la pestaña o desbloquear el celular
@@ -1698,6 +1637,5 @@ window.addEventListener('appinstalled', () => { $('#instalar').hidden = true; pe
 $('#instalar').onclick = async () => { if (!pedido) return; pedido.prompt(); await pedido.userChoice; pedido = null; $('#instalar').hidden = true; };
 })();
 </script>
-<script src="../tema-muertos.js" defer></script>
 </body>
 </html>
