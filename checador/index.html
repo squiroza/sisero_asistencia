@@ -290,8 +290,8 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'x' + Date.now().t
 
 let info = store.get('sisero_info', null);       // servicio del celular
 let elementos = store.get('sisero_elementos', []);
-const TURNOS = ['12x12 D', '12x12 N', '24x24 A', '24x24 B', '24x24', '12x24', '12x36'];
-const TURNOS_FIJOS = ['24x24 A', '24x24 B', '24x24', '12x24', '12x36']; // si el elemento tiene uno de estos, se propone ese (no el 12x12 por hora)
+const TURNOS = ['12x12 D', '12x12 N', '24x24', '12x24', '12x36'];
+const TURNOS_FIJOS = ['24x24', '12x24', '12x36']; // si el elemento tiene uno de estos, se propone ese (no el 12x12 por hora)
 let turno = null;
 let sel = null, tipo = 'Entrada', foto = null, gps = null, enviando = false, cuentaTimer = null;
 const fotosAlta = new Map();
@@ -722,6 +722,6 @@ if ('serviceWorker' in navigator) {
 iniciar();
 })();
 </script>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#8a94a3;pointer-events:none">v9</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#8a94a3;pointer-events:none">v10</div>
 </body>
 </html>
