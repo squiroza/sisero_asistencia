@@ -180,6 +180,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <button class="nav" data-sec="servicios">Servicios</button>
     <button class="nav" data-sec="celulares">Celulares</button>
     <button class="nav" data-sec="borrados">Borrados</button>
+    <button class="nav" data-sec="temas">Temas</button>
     <div class="who"><span id="whoEmail"></span><button class="btn sm outline" id="instalar" type="button" hidden>Instalar app</button><button class="btn sm" id="salir" type="button">Salir</button></div>
   </nav>
 
@@ -258,6 +259,16 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
           <tbody id="efBody"><tr><td colspan="5" class="empty">Cargando…</td></tr></tbody>
         </table>
       </div>
+    </section>
+
+    <!-- ================= TEMAS ================= -->
+    <section id="secTemas" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="head">
+        <div><h1>Temas</h1><div class="sub">Elige la decoración de la temporada. Se aplica en el checador de todos los celulares y en este panel.</div></div>
+        <span class="tag mut" id="tmActual"></span>
+      </div>
+      <div id="tmMsg" class="msg" hidden></div>
+      <div id="tmLista" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px"></div>
     </section>
 
     <!-- ================= BORRADOS ================= -->
@@ -549,6 +560,7 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
 
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 <script src="../config.js"></script>
+<script src="../temas.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -561,6 +573,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 if (!CFG.SUPABASE_URL || CFG.SUPABASE_URL.includes('TU-PROYECTO')) { document.body.innerHTML = '<div style="padding:40px;font-family:system-ui"><h2>Falta configurar</h2><p>Escribe los datos de Supabase en el archivo <b>config.js</b>.</p></div>'; return; }
 const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+if (window.SISERO_TEMA) SISERO_TEMA.sincronizar(sb);
 
 /* ---------- utilidades ---------- */
 const fHora = new Intl.DateTimeFormat('es-MX', { timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -651,7 +664,7 @@ const etiquetaEmp = e => e.nombre + (e.numero ? ' · No. ' + e.numero : '') + (e
 const empPorEtiqueta = t => { t = (t || '').trim(); if (!t) return null; return empleados.find(e => etiquetaEmp(e) === t) || empleados.find(e => norm(e.nombre) === norm(t)) || undefined; };
 
 /* ---------- navegación ---------- */
-const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares', borrados: '#secBorrados', ef: '#secEF' };
+const secs = { asistencia: '#secAsistencia', nocturna: '#secNocturna', cobertura: '#secCobertura', coberturaNoche: '#secCobertura', elementos: '#secElementos', servicios: '#secServicios', celulares: '#secCelulares', borrados: '#secBorrados', ef: '#secEF', temas: '#secTemas' };
 function ir(sec) {
   Object.values(secs).forEach(s => { $(s).hidden = s !== secs[sec]; });
   $$('nav.side button.nav').forEach(b => b.setAttribute('aria-current', b.dataset.sec === sec ? 'page' : 'false'));
@@ -662,6 +675,7 @@ function ir(sec) {
   if (sec === 'celulares') pintarCelulares();
   if (sec === 'borrados') cargarBorrados();
   if (sec === 'ef') cargarEF();
+  if (sec === 'temas') pintarTemas();
   try { history.replaceState(null, '', '#' + sec); } catch (e) {}
 }
 $$('nav.side button.nav').forEach(b => b.onclick = () => ir(b.dataset.sec));
@@ -844,6 +858,37 @@ async function borrarRegistro(r) {
 }
 ['#aTipo', '#aTurno', '#aPuesto', '#aUbic', '#aCub'].forEach(sel => $(sel).onchange = () => pintarRegistros());
 $('#aLimpiar').onclick = () => { ['#aTipo', '#aTurno', '#aPuesto', '#aUbic'].forEach(sel => $(sel).value = ''); $('#aCub').checked = false; pintarRegistros(); };
+
+/* =================== TEMAS =================== */
+let tmActivo = null;
+function tmMsg(clase, txt) { const m = $('#tmMsg'); m.className = 'msg ' + clase; m.textContent = txt; m.hidden = !txt; }
+async function pintarTemas() {
+  const L = $('#tmLista');
+  if (!window.SISERO_TEMA) { L.innerHTML = '<div class="card empty">Falta subir <b>temas.js</b> junto a config.js.</div>'; return; }
+  const { data, error } = await sb.rpc('tema_actual');
+  if (error) tmMsg('bad', /tema_actual|schema cache/i.test(error.message || '') ? 'Falta correr sql/14_temas.sql en Supabase.' : 'No se pudo leer el tema: ' + error.message);
+  else tmMsg('', '');
+  tmActivo = (!error && typeof data === 'string' && data) ? data : (error ? SISERO_TEMA.actual() : 'normal');
+  const act = SISERO_TEMA.lista.find(t => t.id === tmActivo) || SISERO_TEMA.lista[0];
+  $('#tmActual').textContent = 'Activo: ' + act.nombre;
+  L.innerHTML = SISERO_TEMA.lista.map(t => `<div class="card" style="overflow:hidden;display:flex;flex-direction:column;${t.id === tmActivo ? 'outline:3px solid var(--ok)' : ''}">
+    <div style="background:${t.band};height:72px;display:flex;align-items:center;justify-content:center;font-size:38px">${t.emoji}</div>
+    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:6px;flex:1">
+      <b style="font-size:17px">${esc(t.nombre)}</b><span class="sub" style="font-size:14px">${esc(t.desc)}</span>
+      <div style="display:flex;gap:8px;margin-top:auto;padding-top:8px"><button class="btn sm" type="button" data-prev="${t.id}">Vista previa</button><button class="btn sm primary" type="button" data-act="${t.id}" ${t.id === tmActivo ? 'disabled' : ''}>${t.id === tmActivo ? 'Activo' : 'Activar'}</button></div>
+    </div></div>`).join('');
+  $$('#tmLista [data-prev]').forEach(b => b.onclick = () => { SISERO_TEMA.aplicar(b.dataset.prev, { guardar: false }); tmMsg('ok', 'Vista previa solo en esta pantalla. Toca “Activar” para aplicarlo en todos los celulares.'); });
+  $$('#tmLista [data-act]').forEach(b => b.onclick = () => activarTema(b.dataset.act));
+}
+async function activarTema(id) {
+  const t = SISERO_TEMA.lista.find(x => x.id === id); if (!t) return;
+  if (!confirm(`¿Activar el tema “${t.nombre}”?\n\nSe aplica en el checador de todos los celulares y en este panel.`)) return;
+  const { error } = await sb.rpc('poner_tema', { p_tema: id });
+  if (error) { const m = error.message || ''; tmMsg('bad', 'No se pudo activar: ' + (/NO_ADMIN/.test(m) ? 'esta cuenta no es administrador.' : /poner_tema|schema cache/i.test(m) ? 'falta correr sql/14_temas.sql en Supabase.' : m)); return; }
+  SISERO_TEMA.aplicar(id);
+  await pintarTemas();
+  tmMsg('ok', `Tema “${t.nombre}” activado. Cada celular lo toma al abrir la app con internet (o en unos minutos si ya la tiene abierta).`);
+}
 
 /* =================== EF (plantilla de fuerza) =================== */
 const EF_TURNOS = ['24x24 A', '24x24 B', '12x12 D', '12x12 N', '12x36', '12x24'];
