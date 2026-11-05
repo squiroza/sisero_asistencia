@@ -142,6 +142,7 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
 .viewer{position:fixed;inset:0;background:rgba(0,0,0,.85);display:grid;place-items:center;z-index:9;padding:20px}
 .viewer img{max-height:85vh;border-radius:10px}
 </style>
+<script src="../temas.js"></script>
 </head>
 <body>
 <div class="app" id="app">
@@ -161,7 +162,8 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
       <button class="cta" id="lBtn" type="submit">Entrar</button>
       <button class="link" id="lAlta" type="button">Primera vez en este celular: crear acceso</button>
     </form>
-    <p class="hint" style="text-align:center">Elige el correo del servicio. Al terminar de checar, toca “Salir” para cambiar de correo.</p>
+    <p style="text-align:center;margin:0"><button class="salirbtn" id="lActualizar" type="button" style="color:var(--navy)">↻ Actualizar app</button></p>
+      <p class="hint" style="text-align:center">Elige el correo del servicio. Al terminar de checar, toca “Salir” para cambiar de correo.</p>
   </section>
 
   <!-- Celular sin servicio -->
@@ -176,7 +178,7 @@ label.f input{height:52px;border-radius:10px;border:1px solid #c8d0da;background
   <section id="vBuscar" hidden style="display:flex;flex-direction:column">
     <div class="brandbar">
       <div class="logo"><img src="../assets/sisero-icono.png" alt=""><img src="../assets/sisero-texto.png" alt="SISERO"></div>
-      <button class="salirbtn" id="bSalir" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg>Salir</button>
+      <div style="display:flex;gap:8px"><button class="salirbtn" id="bActualizar" type="button" style="color:var(--navy)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>Actualizar</button><button class="salirbtn" id="bSalir" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg>Salir</button></div>
     </div>
     <div class="band">
       <div class="row">
@@ -278,6 +280,7 @@ const CFG = window.SISERO_CONFIG || {};
 const TZ = CFG.ZONA_HORARIA || 'America/Mexico_City';
 const $ = s => document.querySelector(s);
 const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+if (window.SISERO_TEMA) SISERO_TEMA.sincronizar(sb);   // tema de temporada que eligió el administrador
 
 const fHora = new Intl.DateTimeFormat('es-MX', { timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 const fHoraCorta = new Intl.DateTimeFormat('es-MX', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
@@ -685,6 +688,26 @@ async function salirSesion() {
   ver('vLogin');
 }
 $('#ssSalir').onclick = salirSesion;
+/* ---------- actualizar la app a la fuerza ---------- */
+async function actualizarApp(btn) {
+  const html = btn.innerHTML;
+  const fin = m => { btn.disabled = false; btn.innerHTML = html; if (m) alert(m); };
+  if (!navigator.onLine) { alert('Sin internet. Conecta el celular a datos o WiFi e inténtalo de nuevo.'); return; }
+  btn.disabled = true; btn.textContent = 'Actualizando…';
+  try {
+    const r = await conLimite(fetch('sw.js?x=' + Date.now(), { cache: 'no-store' }), 10000);
+    if (!r.ok) throw new Error('sin respuesta');
+  } catch (e) { return fin('No se pudo conectar con el servidor. Revisa tu internet e inténtalo de nuevo.'); }
+  try {
+    // baja una copia fresca de lo principal, quita la versión guardada y recarga
+    await Promise.all(['./', 'index.html', '../config.js', '../temas.js'].map(u => fetch(u, { cache: 'reload' }).catch(() => {})));
+    if ('serviceWorker' in navigator) { const reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.unregister(); }
+    if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.filter(k => k.startsWith('sisero-checador')).map(k => caches.delete(k))); }
+  } catch (e) { /* aunque algo falle, igual recarga */ }
+  location.replace(location.pathname + '?v=' + Date.now());
+}
+$('#bActualizar').onclick = e => actualizarApp(e.currentTarget);
+$('#lActualizar').onclick = e => actualizarApp(e.currentTarget);
 $('#bSalir').onclick = () => { if (confirm('¿Salir de este correo para elegir otro?')) salirSesion(); };
 
 const conLimite = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
@@ -722,6 +745,6 @@ if ('serviceWorker' in navigator) {
 iniciar();
 })();
 </script>
-<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#8a94a3;pointer-events:none">v10</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:11px;color:#8a94a3;pointer-events:none">v11</div>
 </body>
 </html>
