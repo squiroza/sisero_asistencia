@@ -488,7 +488,12 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <div class="grid2">
       <label class="f">Fecha<input id="fvDesde" type="date" required></label>
       <label class="f">Hasta (opcional, si son varios días)<input id="fvHasta" type="date"></label>
-      <label class="f full">Servicio<select id="fvServ"></select></label>
+      <div class="f full" style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:13px;font-weight:600;color:var(--muted)">Servicios que NO abren ese día</span>
+        <label class="chk"><input type="checkbox" id="fvTodos"> <b>Todos los servicios</b></label>
+        <div id="fvServs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px 12px;max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:10px 12px"></div>
+        <span class="sub" style="font-size:13px">Los servicios que no marques abren normal ese día (por ejemplo, los que trabajan y se paga como festivo).</span>
+      </div>
       <label class="f full">Motivo<input id="fvMotivo" type="text" list="dlMotivos" placeholder="Ej. Día de Muertos"></label>
       <datalist id="dlMotivos"><option value="Día de Muertos"><option value="Navidad"><option value="Año Nuevo"><option value="Día de la Independencia"><option value="Revolución"><option value="Batalla de Puebla"><option value="Cierre del cliente"></datalist>
     </div>
@@ -995,18 +1000,25 @@ $('#efPdf').onclick = async () => {
 function fvMsg(clase, t) { const m = $('#fvMsg'); m.className = 'msg ' + clase; m.textContent = t; m.hidden = !t; }
 function pintarFest() {
   const B = $('#fvBody');
-  if (!cierres.length) { B.innerHTML = '<tr><td colspan="4" class="empty">No hay días sin servicio. Toca <b>+ Agregar día sin servicio</b> cuando un servicio no abra por un festivo.</td></tr>'; return; }
-  const lista = [...cierres].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
-  B.innerHTML = lista.map(c => { const d = String(c.fecha).slice(0, 10); const sv = c.servicio_id ? ((servicios.find(x => String(x.id) === String(c.servicio_id)) || {}).nombre || 'Servicio eliminado') : 'Todos los servicios';
-    return `<tr><td class="mono">${fechaCorta(d)} <span class="sub" style="font-family:var(--body)">${NOM_DIA[dowDe(d)]}</span></td><td>${esc(sv)}</td><td>${esc(c.motivo || '—')}</td><td style="text-align:right"><button class="btn sm" type="button" data-fvd="${c.id}" style="color:var(--bad)">Eliminar</button></td></tr>`; }).join('');
-  $$('#fvBody [data-fvd]').forEach(b => b.onclick = () => borrarFest(b.dataset.fvd));
+  if (!cierres.length) { B.innerHTML = '<tr><td colspan="4" class="empty">No hay días sin servicio. Toca <b>+ Agregar día sin servicio</b> cuando algunos servicios no abran por un festivo.</td></tr>'; return; }
+  // Agrupa por fecha + motivo: una fila con todos los servicios que no abrieron
+  const gr = new Map();
+  cierres.forEach(c => { const d = String(c.fecha).slice(0, 10), k = d + '|' + (c.motivo || ''); const g = gr.get(k) || { d, motivo: c.motivo || '', ids: [], todos: false, nombres: [] }; g.ids.push(c.id); if (!c.servicio_id) g.todos = true; else g.nombres.push((servicios.find(x => String(x.id) === String(c.servicio_id)) || {}).nombre || 'Servicio eliminado'); gr.set(k, g); });
+  const lista = [...gr.values()].sort((a, b) => b.d.localeCompare(a.d) || a.motivo.localeCompare(b.motivo, 'es'));
+  B.innerHTML = lista.map((g, i) => `<tr><td class="mono">${fechaCorta(g.d)} <span class="sub" style="font-family:var(--body)">${NOM_DIA[dowDe(g.d)]}</span></td>
+    <td>${g.todos ? '<b>Todos los servicios</b>' : g.nombres.sort((a, b) => a.localeCompare(b, 'es')).map(esc).join(', ')}</td><td>${esc(g.motivo || '—')}</td>
+    <td style="text-align:right"><button class="btn sm" type="button" data-fvg="${i}" style="color:var(--bad)">Eliminar</button></td></tr>`).join('');
+  $$('#fvBody [data-fvg]').forEach(b => b.onclick = () => borrarFest(lista[+b.dataset.fvg]));
 }
 $('#fvNuevo').onclick = () => {
-  $('#fvServ').innerHTML = '<option value="">Todos los servicios</option>' + servicios.filter(x => x.activo).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+  $('#fvServs').innerHTML = servicios.filter(x => x.activo).map(x => `<label class="chk"><input type="checkbox" value="${x.id}"> ${esc(x.nombre)}</label>`).join('');
+  $('#fvTodos').checked = false;
   $('#fvDesde').value = hoyISO(); $('#fvHasta').value = ''; $('#fvMotivo').value = ''; $('#fvMsg2').hidden = true; $('#fvGuardar').disabled = false;
   $('#dFv').showModal();
 };
 $('#fvCancel').onclick = () => $('#dFv').close();
+$('#fvTodos').onchange = () => { $$('#fvServs input').forEach(c => { c.checked = $('#fvTodos').checked; }); };
+$('#fvServs').onchange = () => { const cs = $$('#fvServs input'); $('#fvTodos').checked = cs.length > 0 && cs.every(c => c.checked); };
 $('#fFv').addEventListener('submit', async ev => {
   ev.preventDefault();
   const m = t => { $('#fvMsg2').textContent = t; $('#fvMsg2').hidden = false; };
@@ -1015,20 +1027,23 @@ $('#fFv').addEventListener('submit', async ev => {
   if (d2 < d1) return m('La fecha final no puede ser antes de la inicial.');
   const dias = []; for (let d = d1; d <= d2 && dias.length < 62; d = sumaDias(d, 1)) dias.push(d);
   if (dias.length > 31) return m('Máximo 31 días seguidos por captura.');
-  const sv = $('#fvServ').value || null, motivo = $('#fvMotivo').value.trim() || null;
-  const filas = dias.filter(d => !cierres.some(c => String(c.fecha).slice(0, 10) === d && (c.servicio_id || null) === sv)).map(d => ({ fecha: d, servicio_id: sv, motivo }));
+  const svs = $$('#fvServs input:checked').map(c => c.value), motivo = $('#fvMotivo').value.trim() || null;
+  if (!svs.length) return m('Marca al menos un servicio que no abre ese día.');
+  const filas = [];
+  dias.forEach(d => svs.forEach(sv => { if (!cierres.some(c => String(c.fecha).slice(0, 10) === d && String(c.servicio_id || '') === String(sv))) filas.push({ fecha: d, servicio_id: sv, motivo }); }));
   if (!filas.length) return m('Esa fecha ya estaba registrada para ese servicio.');
   $('#fvGuardar').disabled = true;
   const { error } = await sb.from('dias_sin_servicio').insert(filas);
   if (error) { $('#fvGuardar').disabled = false; return m('No se pudo guardar: ' + (/dias_sin_servicio|schema cache|does not exist/i.test(error.message || '') ? 'falta correr sql/15_dias_sin_servicio.sql en Supabase.' : error.message)); }
   $('#dFv').close(); await cargarCatalogos(); pintarFest();
-  fvMsg('ok', `Listo: ${filas.length} día${filas.length === 1 ? '' : 's'} sin servicio. La cobertura de esas fechas queda en 0.`);
+  fvMsg('ok', `Listo: ${dias.length} día${dias.length === 1 ? '' : 's'} sin servicio en ${svs.length} servicio${svs.length === 1 ? '' : 's'}. Los demás servicios abren normal.`);
   if (!$('#secCobertura').hidden) cargarCob();
 });
-async function borrarFest(id) {
-  const c = cierres.find(x => String(x.id) === String(id)); if (!c) return;
-  if (!confirm(`¿Quitar este día sin servicio?\n\n${fechaCorta(String(c.fecha).slice(0, 10))} · ${c.motivo || ''}\n\nEse día volverá a contar con sus requeridos normales.`)) return;
-  const { error } = await sb.from('dias_sin_servicio').delete().eq('id', c.id);
+async function borrarFest(g) {
+  if (!g) return;
+  const que = g.todos ? 'todos los servicios' : g.nombres.join(', ');
+  if (!confirm(`¿Quitar este día sin servicio?\n\n${fechaCorta(g.d)} · ${g.motivo || ''}\n${que}\n\nEsos servicios volverán a contar con sus requeridos normales ese día.`)) return;
+  const { error } = await sb.from('dias_sin_servicio').delete().in('id', g.ids);
   if (error) { fvMsg('bad', 'No se pudo quitar: ' + error.message); return; }
   await cargarCatalogos(); pintarFest(); fvMsg('', '');
   if (!$('#secCobertura').hidden) cargarCob();
