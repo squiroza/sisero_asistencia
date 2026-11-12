@@ -416,8 +416,8 @@ function abrir(o) {
   <h2>Evidencias</h2>
   <div class="sec">
     <div class="fotos" id="fotos"></div>
-    ${ro ? "" : `<label class="add" id="addFoto"><span id="addTxt"></span><input type="file" id="inFoto" accept="image/*" multiple></label>
-    <p class="hint">Toma la foto con la cámara o elige varias de la galería. Máximo ${MAX_FOTOS} por supervisión.</p>`}
+    ${ro ? "" : `<label class="add" id="addFoto"><span id="addTxt"></span><input type="file" id="inFoto" accept="image/*" capture="environment"></label>
+    <p class="hint">Las fotos se toman en el momento con la cámara. Mínimo 1 y máximo ${MAX_FOTOS} por supervisión.</p>`}
   </div>
 
   <h2>Archivos adjuntos</h2>
@@ -439,11 +439,20 @@ function abrir(o) {
 
   <h2>Supervisor</h2>
   <div class="sec">${campo("obs_supervisor", "Observaciones del supervisor", ro, true)}${firma("firma_supervisor", "Firma del supervisor", ro)}</div>
-  ${ro ? "" : `<button type="button" class="ghost danger" id="btnDel" style="margin-top:20px">Eliminar esta supervisión</button>`}`;
+  ${ro ? "" : `<button type="button" class="ghost danger" id="btnDel" style="margin-top:20px">Eliminar esta supervisión</button>`}
+  ${ro && perfil.rol === "admin" ? `<button type="button" class="ghost danger" id="btnDelAdm" style="margin-top:20px">Eliminar esta supervisión (solo administrador)</button>` : ""}`;
 
   pintarFotos(); pintarArchivos();
   window.scrollTo(0, 0);
   if ($("btnPdf")) $("btnPdf").onclick = e => crearPDF(o, e.currentTarget);
+  if ($("btnDelAdm")) $("btnDelAdm").onclick = async () => {
+    if (!await ask("Eliminar supervisión", `Se elimina por completo la supervisión ${o.id} (${o.servicio || "sin servicio"}, ${o.supervisor}) con sus fotos, archivos y firmas. Dejará de contar en las gráficas y metas. No se puede recuperar.`, "Eliminar definitivamente")) return;
+    const rutas = [...o.evidencias, ...o.archivos.map(a => a.ruta)];
+    const { data, error } = await sb.from("sup_supervisiones").delete().eq("id", o.id).select("id");
+    if (error || !(data || []).length) return aviso("No se pudo eliminar", "Revisa tu internet y que ya hayas corrido en Supabase el SQL que da este permiso al administrador.");
+    if (rutas.length) { const r = await sb.storage.from(CFG.bucket).remove(rutas); if (r.error) await aviso("Supervisión eliminada", "El registro se eliminó, pero no se pudieron borrar sus fotos o archivos del almacenamiento."); }
+    if (origen === "admin") verAdmin(); else verLista();
+  };
   if (ro) return;
 
   const f = $("vForm");
@@ -524,7 +533,7 @@ async function pintarFotos() {
     const [r] = o.evidencias.splice(+b.dataset.rm, 1); sb.storage.from(CFG.bucket).remove([r]); pintarFotos(); guardarLuego();
   });
   $("addFoto").hidden = o.evidencias.length >= MAX_FOTOS;
-  $("addTxt").textContent = `+ Agregar foto (${o.evidencias.length} de ${MAX_FOTOS})`;
+  $("addTxt").textContent = `Tomar foto con la cámara (${o.evidencias.length} de ${MAX_FOTOS})`;
 }
 function comprimir(file) {
   return new Promise((res, rej) => {
@@ -540,7 +549,7 @@ function comprimir(file) {
 }
 async function agregarFotos(e) {
   const o = cur, files = [...e.target.files], quedan = MAX_FOTOS - o.evidencias.length; let fallas = 0;
-  e.target.value = ""; $("addTxt").textContent = "Subiendo fotos…";
+  e.target.value = ""; $("addTxt").textContent = "Subiendo foto…";
   for (const [i, f] of files.slice(0, quedan).entries()) {
     try { const b = await comprimir(f), ruta = carpeta(o) + "ev-" + Date.now() + "-" + i + ".jpg"; await subir(ruta, b, "image/jpeg"); o.evidencias.push(ruta); }
     catch (err) { fallas++; }
@@ -606,13 +615,13 @@ $("btnFin").onclick = async () => {
   if (!cur.cliente) falta.push("Cliente");
   if (!cur.servicio) falta.push("Servicio o sucursal");
   if (!cur.guardia.trim()) falta.push("Nombre del guardia en turno");
-  if (falta.length) return aviso("Faltan datos", "Para finalizar captura:\n• " + falta.join("\n• "));
-  const avisos = [], sin = PREGUNTAS.length - respondidas(cur);
-  if (sin) avisos.push(sin + " puntos de revisión sin contestar");
-  if (!cur.evidencias.length) avisos.push("sin fotos de evidencia");
-  if (!cur.firma_guardia) avisos.push("sin firma del guardia");
-  if (!cur.firma_supervisor) avisos.push("sin firma del supervisor");
-  const msg = (avisos.length ? "Ojo, va así:\n• " + avisos.join("\n• ") + "\n\n" : "") + "Al finalizar se registra la hora de salida y ya no se puede editar.";
+  const sin = PREGUNTAS.map((_, i) => cur.respuestas[i] ? 0 : i + 1).filter(Boolean);
+  if (sin.length) falta.push(sin.length === 1 ? "Punto de revisión " + sin[0] : "Puntos de revisión sin contestar: " + sin.join(", "));
+  if (!cur.evidencias.length) falta.push("Al menos una foto de evidencia");
+  if (!cur.firma_guardia) falta.push("Firma del guardia");
+  if (!cur.firma_supervisor) falta.push("Firma del supervisor");
+  if (falta.length) return aviso("Faltan datos", "Para finalizar hay que completar:\n• " + falta.join("\n• "));
+  const msg = "Al finalizar se registra la hora de salida y ya no se puede editar.";
   if (!await ask("Finalizar supervisión", msg, "Finalizar", "Seguir editando")) return;
   clearTimeout(timer);
   cur.hora_fin = hora(new Date()); cur.estatus = "Finalizada";
