@@ -326,7 +326,7 @@ async function verLista() {
       <b>${esc(o.servicio || "Servicio sin seleccionar")}</b>
       <span>Guardia: ${esc(o.guardia || "sin capturar")}${perfil.rol === "admin" ? " · Supervisor: " + esc(o.supervisor) : ""}</span>
       <div class="row"><span>${esc(o.fecha)} · ${esc(o.hora_inicio)}${o.hora_fin ? " a " + esc(o.hora_fin) : ""} · ${respondidas(o)}/${PREGUNTAS.length} puntos · ${o.evidencias.length} fotos</span>
-      <span class="pill ${o.estatus === "Finalizada" ? "fin" : ""}">${esc(o.estatus)}</span></div>
+      <span class="pill ${o.estatus === "Finalizada" ? "fin" : ""}">${esc(o.estatus)}${o.cierre_automatico ? " · automática" : ""}</span></div>
     </button>`).join("")
     : `<p class="empty">${tab === "En proceso" ? "No hay supervisiones en proceso. Toca “Nueva supervisión” para empezar." : "Todavía no hay supervisiones finalizadas."}</p>`;
   $("lista").querySelectorAll(".card").forEach(b => b.onclick = () => { origen = "lista"; abrir(all.find(o => o.id === b.dataset.id)); });
@@ -397,7 +397,7 @@ function abrir(o) {
   <h2>Datos de la visita</h2>
   <div class="sec">
     <div class="meta">
-      <div>Id supervisión<b>${esc(o.id)}</b></div><div>Estatus<b>${esc(o.estatus)}</b></div>
+      <div>Id supervisión<b>${esc(o.id)}</b></div><div>Estatus<b>${esc(o.estatus)}${o.cierre_automatico ? " (cierre automático a las 2 horas)" : ""}</b></div>
       <div>Fecha<b>${esc(o.fecha)}</b></div><div>Hora inicio<b>${esc(o.hora_inicio)}</b></div>
       <div>Hora fin<b>${esc(o.hora_fin || "Se llena al finalizar")}</b></div><div>Coordenadas<b id="coordsTxt">${esc(o.coordenadas || "Sin ubicación")}</b></div>
       <div style="grid-column:1/-1">Supervisor<b>${esc(o.supervisor)}</b></div>
@@ -493,7 +493,16 @@ function guardarLuego() { clearTimeout(timer); $("saved").textContent = "Guardan
 async function guardar() {
   clearTimeout(timer); const o = cur; if (!o) return true;
   const fila = { ...o, actualizado: new Date().toISOString() };
-  const { error } = await sb.from("sup_supervisiones").update(fila).eq("id", o.id);
+  const { data, error } = await sb.from("sup_supervisiones").update(fila).eq("id", o.id).select("id");
+  if (!error && !(data || []).length) {   // la base no aceptó el cambio: la supervisión ya no está en proceso
+    const r = await sb.from("sup_supervisiones").select("estatus").eq("id", o.id).maybeSingle();
+    if (cur === o) {
+      cur = null;
+      await aviso("Supervisión cerrada", r.data && r.data.estatus === "Finalizada" ? "Esta supervisión se finalizó automáticamente porque pasaron 2 horas desde que se inició. Ya no se puede editar." : "Esta supervisión ya no existe o ya no se puede editar.");
+      tab = "Finalizada"; verLista();
+    }
+    return true;
+  }
   if (cur === o) $("saved").textContent = error ? "⚠ Sin guardar: no hay conexión. Se reintenta con el siguiente cambio o al tocar Guardar." : "Guardado a las " + hora(new Date()) + " · " + o.estatus;
   return !error;
 }
@@ -624,8 +633,8 @@ $("btnFin").onclick = async () => {
   const msg = "Al finalizar se registra la hora de salida y ya no se puede editar.";
   if (!await ask("Finalizar supervisión", msg, "Finalizar", "Seguir editando")) return;
   clearTimeout(timer);
-  cur.hora_fin = hora(new Date()); cur.estatus = "Finalizada";
-  if (!await guardar()) { cur.hora_fin = ""; cur.estatus = "En proceso"; return aviso("No se pudo finalizar", "No hay conexión. La supervisión sigue en proceso; intenta de nuevo cuando tengas señal."); }
+  const o = cur; o.hora_fin = hora(new Date()); o.estatus = "Finalizada";
+  if (!await guardar()) { o.hora_fin = ""; o.estatus = "En proceso"; return aviso("No se pudo finalizar", "No hay conexión. La supervisión sigue en proceso; intenta de nuevo cuando tengas señal."); }
   tab = "Finalizada"; verLista();
 };
 
@@ -745,7 +754,7 @@ async function pintarAdmin() {
         <b>${esc(o.servicio || "Servicio sin seleccionar")}</b>
         <span>${esc(o.cliente || "Sin cliente")} · ${esc(o.localidad || "Sin localidad")}<br>Supervisor: ${esc(o.supervisor)} · Guardia: ${esc(o.guardia || "sin capturar")}</span>
         <div class="row"><span>${esc(o.fecha)} · ${esc(o.hora_inicio)}${o.hora_fin ? " a " + esc(o.hora_fin) : ""} · ${respondidas(o)}/${PREGUNTAS.length} puntos · ${o.evidencias.length} fotos</span>
-        <span class="pill ${o.estatus === "Finalizada" ? "fin" : ""}">${esc(o.estatus)}</span></div></button>`).join("") || `<p class="empty">No hay supervisiones con ese filtro.</p>`}</div>`;
+        <span class="pill ${o.estatus === "Finalizada" ? "fin" : ""}">${esc(o.estatus)}${o.cierre_automatico ? " · automática" : ""}</span></div></button>`).join("") || `<p class="empty">No hay supervisiones con ese filtro.</p>`}</div>`;
     [["fDesde", "desde"], ["fHasta", "hasta"], ["fLoc", "loc"], ["fCli", "cli"], ["fSup", "sup"], ["fEst", "est"]].forEach(([id, k]) => $(id).onchange = e => { aFil[k] = e.target.value; pintarAdmin(); });
   }
 }
@@ -998,7 +1007,7 @@ async function crearPDF(o, btn) {
 
     // Datos de la visita (dos columnas)
     const f = o.fecha.split("-"), datos = [
-      ["Fecha", `${f[2]}/${f[1]}/${f[0]}`], ["Horario", o.hora_inicio + (o.hora_fin ? " a " + o.hora_fin : "")],
+      ["Fecha", `${f[2]}/${f[1]}/${f[0]}`], ["Horario", o.hora_inicio + (o.hora_fin ? " a " + o.hora_fin : "") + (o.cierre_automatico ? " (cierre automático)" : "")],
       ["Localidad", o.localidad], ["Cliente", o.cliente], ["Servicio o sucursal", o.servicio], ["Supervisor", o.supervisor],
       ["Guardia en turno", o.guardia], ["Coordenadas", o.coordenadas]];
     for (let i = 0; i < datos.length; i += 2) {
