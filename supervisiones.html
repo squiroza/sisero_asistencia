@@ -12,21 +12,13 @@
 <style>
 /* Layout: una columna tipo celular; login, bandeja de tarjetas y formulario por secciones con barra de acciones fija abajo */
 :root{
-  --bg:#f2f5f9; --surface:#ffffff; --ink:#0c2247; --muted:#5a6473; --line:#d3dbe6;
+  color-scheme:light;   /* siempre tema claro, fondo blanco, aunque el celular esté en modo oscuro */
+  --bg:#ffffff; --surface:#ffffff; --ink:#0c2247; --muted:#5a6473; --line:#d3dbe6;
   --accent:#2f62a3; --accent-ink:#ffffff; --ok:#1f7a4d; --bad:#b3261e; --na:#5e6167;
   --head:#0a1a33; --head-ink:#ffffff; --head-sub:#9fb4d4;
+  --campo:#f4f6fa;
   --display:"Poppins","Segoe UI",system-ui,sans-serif;
   --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#071226; --surface:#0f2040; --ink:#e9eff8; --muted:#a0b0c8; --line:#263d63;
-    --accent:#6a9bd8; --accent-ink:#06101f; --ok:#4fbf86; --bad:#f0736a; --na:#9aa0a8; color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#071226; --surface:#0f2040; --ink:#e9eff8; --muted:#a0b0c8; --line:#263d63;
-  --accent:#6a9bd8; --accent-ink:#06101f; --ok:#4fbf86; --bad:#f0736a; --na:#9aa0a8; color-scheme:dark;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -63,7 +55,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
 .meta b{display:block;color:var(--ink);font-size:16px;overflow-wrap:anywhere}
 label.f{display:grid;gap:5px;font-size:14px;font-weight:600}
-input[type=text],input[type=password],input[type=date],input[type=number],select,textarea{font:inherit;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input[type=text],input[type=password],input[type=date],input[type=number],select,textarea{font:inherit;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--campo);color:var(--ink)}
 textarea{min-height:84px;resize:vertical}
 input:disabled,textarea:disabled,select:disabled{opacity:1;color:var(--ink)}
 .q{display:grid;gap:8px;padding-bottom:14px;border-bottom:1px solid var(--line)}
@@ -72,7 +64,7 @@ input:disabled,textarea:disabled,select:disabled{opacity:1;color:var(--ink)}
 .q p i{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:6px}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .seg.two{grid-template-columns:repeat(2,1fr)}
-label.opt{position:relative;border:1px solid var(--line);border-radius:8px;padding:10px 4px;text-align:center;font-weight:600;background:var(--bg);cursor:pointer}
+label.opt{position:relative;border:1px solid var(--line);border-radius:8px;padding:10px 4px;text-align:center;font-weight:600;background:var(--campo);cursor:pointer}
 label.opt input{position:absolute;opacity:0;inset:0}
 label.opt.on.si{background:var(--ok);border-color:var(--ok);color:#fff}
 label.opt.on.no{background:var(--bad);border-color:var(--bad);color:#fff}
@@ -85,7 +77,7 @@ label.opt.on.na{background:var(--na);border-color:var(--na);color:#fff}
 .fotos img{width:100%;height:100%;object-fit:cover;display:block}
 .fotos figure button{position:absolute;top:4px;right:4px;padding:2px 9px;border-radius:99px;background:#000b;color:#fff;border:0}
 .files{display:grid;gap:8px}
-.file{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
+.file{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--campo)}
 .file a{flex:1;color:var(--accent);font-weight:600;overflow-wrap:anywhere}
 .add{display:block;text-align:center;border:1px dashed var(--accent);color:var(--accent);border-radius:8px;padding:12px;font-weight:600;cursor:pointer;position:relative}
 .add input{position:absolute;inset:0;opacity:0;cursor:pointer}
@@ -96,7 +88,7 @@ label.chk{display:flex;gap:10px;align-items:center;font-weight:500}
 label.chk input{width:22px;height:22px;accent-color:var(--accent)}
 #dlgF{display:grid;gap:12px;margin-bottom:16px}
 .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.tile{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
+.tile{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--campo)}
 .tile span{display:block;font-size:13px;color:var(--muted)}
 .tile b{font-family:var(--display);font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}
 #stats .seg button,#dash .seg button{padding:8px 4px;background:var(--bg)}
@@ -110,7 +102,7 @@ label.chk input{width:22px;height:22px;accent-color:var(--accent)}
 .hbt{display:flex;justify-content:space-between;gap:10px;font-size:14px}
 .hbt span{overflow-wrap:anywhere}
 .hbt b{white-space:nowrap;font-variant-numeric:tabular-nums}
-.hbk{height:10px;border-radius:5px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.hbk{height:10px;border-radius:5px;background:var(--campo);border:1px solid var(--line);overflow:hidden}
 .hbk i{display:block;height:100%;background:var(--accent);border-radius:0 5px 5px 0}
 .hbk i.ok{background:var(--ok)}
 .donas{display:grid;gap:14px}
@@ -339,7 +331,7 @@ $("tabFin").onclick = () => { tab = "Finalizada"; verLista(); };
 $("btnNueva").onclick = async () => {
   const d = new Date();
   const o = {
-    id: "SUP-" + fecha(d).replace(/-/g, "") + "-" + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds()) + "-" + (perfil.usuario || "").toUpperCase(),
+    id: "SUP-" + fecha(d).replace(/-/g, "") + "-" + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds()) + "-SEPRO",
     supervisor_id: uid, supervisor: perfil.nombre,
     fecha: fecha(d), hora_inicio: hora(d), hora_fin: "", estatus: "En proceso",
     localidad: "", cliente: "", servicio: "", respuestas: {}, guardia: "", firma_guardia: "",
