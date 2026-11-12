@@ -350,7 +350,7 @@ $("btnNueva").onclick = async () => {
   const { error } = await sb.from("sup_supervisiones").insert(o);
   $("btnNueva").disabled = false;
   if (error) return aviso("No se pudo crear", "No se pudo crear la supervisión. Revisa tu internet e intenta de nuevo.");
-  origen = "lista"; abrir(o); tomarGPS(true);
+  origen = "lista"; abrir(o);   // abrir() toma la ubicación automáticamente
 };
 
 /* ====== Formulario ====== */
@@ -402,7 +402,6 @@ function abrir(o) {
       <div>Hora fin<b>${esc(o.hora_fin || "Se llena al finalizar")}</b></div><div>Coordenadas<b id="coordsTxt">${esc(o.coordenadas || "Sin ubicación")}</b></div>
       <div style="grid-column:1/-1">Supervisor<b>${esc(o.supervisor)}</b></div>
     </div>
-    ${ro ? "" : `<button type="button" id="btnGPS">Tomar ubicación GPS</button>`}
     ${lista("localidad", "Localidad", CAT.loc.map(l => l.nombre), ro)}
     ${lista("cliente", "Cliente", [], ro)}
     ${lista("servicio", "Servicio o sucursal", [], ro)}
@@ -466,7 +465,7 @@ function abrir(o) {
     const c = f.querySelector(`canvas[data-sig="${b.dataset.clear}"]`); c.getContext("2d").clearRect(0, 0, c.width, c.height);
     cur[b.dataset.clear] = ""; guardarLuego();
   });
-  $("btnGPS").onclick = () => tomarGPS(false);
+  if (!cur.coordenadas) tomarGPS();   // si al crearla no se pudo, se reintenta sola cada vez que se abre
   $("inFoto").onchange = agregarFotos;
   $("inArch").onchange = agregarArchivos;
   $("btnDel").onclick = async () => {
@@ -579,15 +578,15 @@ async function agregarArchivos(e) {
 }
 
 /* ---- GPS ---- */
-function tomarGPS(silencioso) {
+function tomarGPS() {   // automática, sin botón: al crear la supervisión y al reabrirla si aún no tiene ubicación
   const o = cur; if (!o) return;
-  const falla = m => { if (!silencioso) aviso("Sin ubicación", m); };
-  if (!navigator.geolocation) return falla("Este celular o navegador no permite tomar la ubicación.");
+  const falla = () => { if (cur === o && $("coordsTxt")) $("coordsTxt").textContent = "Sin ubicación: activa el GPS y da permiso de ubicación"; };
+  if (!navigator.geolocation) return falla();
   navigator.geolocation.getCurrentPosition(p => {
     o.coordenadas = p.coords.latitude.toFixed(6) + ", " + p.coords.longitude.toFixed(6);
     if (cur === o) { $("coordsTxt").textContent = o.coordenadas; guardarLuego(); }
     else if (o.estatus === "En proceso") sb.from("sup_supervisiones").update({ coordenadas: o.coordenadas }).eq("id", o.id).then(() => {});
-  }, () => falla("No se pudo tomar la ubicación. Activa el GPS y da permiso de ubicación al navegador."), { enableHighAccuracy: true, timeout: 15000 });
+  }, falla, { enableHighAccuracy: true, timeout: 15000 });
 }
 
 /* ---- Guardar y salir / Finalizar ---- */
