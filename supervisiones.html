@@ -176,11 +176,12 @@ dialog .act{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 
   <section id="vDash" hidden>
     <h2>Gráficas de supervisiones</h2>
+    <button id="btnFinMon" style="width:100%;margin-bottom:14px" hidden>Ver supervisiones finalizadas y crear PDF</button>
     <div id="dash"></div>
   </section>
 
   <section id="vAdmin" hidden>
-    <h2>Panel de administrador</h2>
+    <h2 id="aTit">Panel de administrador</h2>
     <div class="tabs wrapt" role="tablist" id="aTabs"></div>
     <div id="adm"></div>
   </section>
@@ -615,7 +616,8 @@ async function salirDelFormulario() {
   if (origen === "admin") verAdmin(); else verLista();
 }
 $("btnGuardar").onclick = () => { tab = "En proceso"; salirDelFormulario(); };
-$("btnBack").onclick = () => $("vForm").hidden ? verLista() : salirDelFormulario();
+$("btnBack").onclick = () => !$("vForm").hidden ? salirDelFormulario() : perfil.rol === "monitor" ? verDash() : verLista();
+$("btnFinMon").onclick = verAdmin;
 $("btnAdmin").onclick = verAdmin;
 $("btnDash").onclick = verDash;
 $("btnFin").onclick = async () => {
@@ -640,7 +642,7 @@ $("btnFin").onclick = async () => {
 
 /* ====== Panel de administrador (solo rol admin) ====== */
 const A_TABS = [["sup", "Supervisiones"], ["met", "Metas"], ["usr", "Usuarios"], ["loc", "Localidades"], ["cli", "Clientes"], ["srv", "Servicios"]];
-const ROLES = { supervisor: "Supervisor", monitor: "Monitorista / Administración (solo gráficas)", admin: "Administrador general" };
+const ROLES = { supervisor: "Supervisor", monitor: "Monitorista / Administración (gráficas y PDF)", admin: "Administrador general" };
 let aTab = "sup", origen = "lista", SUPS = [], aRows = [], aMes = new Date();
 const aFil = { desde: "", hasta: "", loc: "", cli: "", sup: "", est: "" };
 
@@ -671,6 +673,8 @@ const selFil = (id, label, opts, val) => `<label class="f" for="${id}">${label}<
 async function verAdmin() {
   cur = null; clearTimeout(timer);
   ver("vAdmin"); $("bar").hidden = true; $("btnBack").hidden = false; $("btnSalir").hidden = true;
+  const mon = perfil.rol === "monitor"; if (mon) aTab = "sup";
+  $("aTit").textContent = mon ? "Supervisiones finalizadas" : "Panel de administrador"; $("aTabs").hidden = mon;
   $("aTabs").innerHTML = A_TABS.map(([k, l]) => `<button role="tab" data-t="${k}" aria-selected="${k === aTab}">${l}</button>`).join("");
   $("aTabs").querySelectorAll("button").forEach(b => b.onclick = () => { aTab = b.dataset.t; verAdmin(); });
   await pintarAdmin();
@@ -737,7 +741,7 @@ async function pintarAdmin() {
     if (aFil.loc) q = q.eq("localidad", aFil.loc);
     if (aFil.cli) q = q.eq("cliente", aFil.cli);
     if (aFil.sup) q = q.eq("supervisor_id", aFil.sup);
-    if (aFil.est) q = q.eq("estatus", aFil.est);
+    if (perfil.rol === "monitor") q = q.eq("estatus", "Finalizada"); else if (aFil.est) q = q.eq("estatus", aFil.est);
     const { data, error } = await q;
     if (error) { A.innerHTML = `<p class="empty">No se pudo cargar. Revisa tu internet.</p>`; return; }
     aRows = data || [];
@@ -747,7 +751,7 @@ async function pintarAdmin() {
         ${selFil("fLoc", "Localidad", optsDe(locs, "Todas"), aFil.loc)}
         ${selFil("fCli", "Cliente", optsDe([...new Set(CAT.cli.map(c => c.nombre))], "Todos"), aFil.cli)}
         ${selFil("fSup", "Supervisor", [["", "Todos"], ...SUPS.filter(u => u.rol !== "monitor").map(u => [u.id, u.nombre])], aFil.sup)}
-        ${selFil("fEst", "Estatus", [["", "Todos"], ["En proceso", "En proceso"], ["Finalizada", "Finalizada"]], aFil.est)}
+        ${perfil.rol === "monitor" ? "" : selFil("fEst", "Estatus", [["", "Todos"], ["En proceso", "En proceso"], ["Finalizada", "Finalizada"]], aFil.est)}
       </div>
       <p class="hint">${aRows.length} supervisiones${aRows.length === 300 ? " (se muestran las 300 más recientes; acota con los filtros)" : ""}</p>
       <div>${aRows.map((o, i) => `<button class="card ${o.estatus === "Finalizada" ? "fin" : ""}" data-act="ver" data-i="${i}">
@@ -755,7 +759,7 @@ async function pintarAdmin() {
         <span>${esc(o.cliente || "Sin cliente")} · ${esc(o.localidad || "Sin localidad")}<br>Supervisor: ${esc(o.supervisor)} · Guardia: ${esc(o.guardia || "sin capturar")}</span>
         <div class="row"><span>${esc(o.fecha)} · ${esc(o.hora_inicio)}${o.hora_fin ? " a " + esc(o.hora_fin) : ""} · ${respondidas(o)}/${PREGUNTAS.length} puntos · ${o.evidencias.length} fotos</span>
         <span class="pill ${o.estatus === "Finalizada" ? "fin" : ""}">${esc(o.estatus)}${o.cierre_automatico ? " · automática" : ""}</span></div></button>`).join("") || `<p class="empty">No hay supervisiones con ese filtro.</p>`}</div>`;
-    [["fDesde", "desde"], ["fHasta", "hasta"], ["fLoc", "loc"], ["fCli", "cli"], ["fSup", "sup"], ["fEst", "est"]].forEach(([id, k]) => $(id).onchange = e => { aFil[k] = e.target.value; pintarAdmin(); });
+    [["fDesde", "desde"], ["fHasta", "hasta"], ["fLoc", "loc"], ["fCli", "cli"], ["fSup", "sup"], ["fEst", "est"]].forEach(([id, k]) => { if ($(id)) $(id).onchange = e => { aFil[k] = e.target.value; pintarAdmin(); }; });
   }
 }
 $("adm").onclick = e => { const b = e.target.closest("[data-act]"); if (b) accionAdmin(b.dataset.act, aRows[+b.dataset.i]); };
@@ -918,6 +922,7 @@ let dG = "month", dRef = new Date(), dSeq = 0;
 function verDash() {
   cur = null; clearTimeout(timer);
   ver("vDash"); $("bar").hidden = true; $("btnBack").hidden = perfil.rol === "monitor"; $("btnSalir").hidden = perfil.rol !== "monitor";
+  $("btnFinMon").hidden = perfil.rol !== "monitor";
   pintarDash();
 }
 async function pintarDash() {
