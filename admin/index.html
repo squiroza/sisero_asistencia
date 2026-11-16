@@ -266,13 +266,13 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
     <!-- ================= FESTIVOS / DÍAS SIN SERVICIO ================= -->
     <section id="secFestivos" hidden style="display:flex;flex-direction:column;gap:18px">
       <div class="head">
-        <div><h1>Festivos · días sin servicio</h1><div class="sub">Fechas en las que un servicio (o todos) no abre. La cobertura de ese día queda en 0 sin tocar los días normales de la semana.</div></div>
-        <button class="btn primary" id="fvNuevo" type="button">+ Agregar día sin servicio</button>
+        <div><h1>Festivos</h1><div class="sub">Por cada servicio indica cuántos guardias SÍ trabajan en el día festivo (0 = descansan todos). La cobertura de esa fecha se calcula con ese número, sin tocar los días normales de la semana.</div></div>
+        <button class="btn primary" id="fvNuevo" type="button">+ Agregar festivo</button>
       </div>
       <div id="fvMsg" class="msg" hidden></div>
       <div class="card tablebox">
         <table style="min-width:640px">
-          <thead><tr><th>Fecha</th><th>Servicio</th><th>Motivo</th><th></th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Servicios y guardias que trabajan</th><th>Motivo</th><th></th></tr></thead>
           <tbody id="fvBody"><tr><td colspan="4" class="empty">Cargando…</td></tr></tbody>
         </table>
       </div>
@@ -484,15 +484,15 @@ dialog::backdrop{background:rgba(7,29,58,.45)}
 <!-- Diálogo: día sin servicio -->
 <dialog id="dFv">
   <form class="dlg" id="fFv" method="dialog" novalidate>
-    <h2>Agregar día sin servicio</h2>
+    <h2>Agregar festivo</h2>
     <div class="grid2">
       <label class="f">Fecha<input id="fvDesde" type="date" required></label>
       <label class="f">Hasta (opcional, si son varios días)<input id="fvHasta" type="date"></label>
       <div class="f full" style="display:flex;flex-direction:column;gap:6px">
-        <span style="font-size:13px;font-weight:600;color:var(--muted)">Servicios que NO abren ese día</span>
-        <label class="chk"><input type="checkbox" id="fvTodos"> <b>Todos los servicios</b></label>
-        <div id="fvServs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px 12px;max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:10px 12px"></div>
-        <span class="sub" style="font-size:13px">Los servicios que no marques abren normal ese día (por ejemplo, los que trabajan y se paga como festivo).</span>
+        <span style="font-size:13px;font-weight:600;color:var(--muted)">Servicios con festivo · guardias que SÍ trabajan</span>
+        <label class="chk"><input type="checkbox" id="fvTodos"> <b>Marcar todos los servicios</b></label>
+        <div id="fvServs" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:10px 12px"></div>
+        <span class="sub" style="font-size:13px">Marca el servicio y escribe cuántos guardias trabajan ese día: <b>0</b> si descansan todos (ej. Cemex), <b>6</b> si de 9 solo trabajan 6. Los servicios que no marques abren normal.</span>
       </div>
       <label class="f full">Motivo<input id="fvMotivo" type="text" list="dlMotivos" placeholder="Ej. Día de Muertos"></label>
       <datalist id="dlMotivos"><option value="Día de Muertos"><option value="Navidad"><option value="Año Nuevo"><option value="Día de la Independencia"><option value="Revolución"><option value="Batalla de Puebla"><option value="Cierre del cliente"></datalist>
@@ -683,7 +683,11 @@ async function reducir(file, max, q) {
 /* ---------- estado ---------- */
 let servicios = [], empleados = [], dispositivos = [], registros = [], canal = null, cierres = [];
 // ¿Ese servicio no abre ese día (festivo o cierre)? Devuelve el cierre o undefined.
-const cierreDe = (s, D) => cierres.find(c => String(c.fecha).slice(0, 10) === D && (!c.servicio_id || String(c.servicio_id) === String(s.id)));
+const cierreDe = (s, D) => { const l = cierres.filter(c => String(c.fecha).slice(0, 10) === D && (!c.servicio_id || String(c.servicio_id) === String(s.id))); return l.find(c => c.servicio_id) || l[0]; };
+// Requeridos ese día: si es festivo, los guardias que SÍ trabajan (0 = descansan todos); si no, los normales.
+const reqFest = (s, D, base) => { const c = cierreDe(s, D); return c ? (c.requeridos || 0) : base; };
+// De noche solo se apaga si el festivo es de descanso total; si se indicó un número, aplica a la cobertura del día.
+const reqFestNoche = (s, D, base) => { const c = cierreDe(s, D); return c && !(c.requeridos > 0) ? 0 : base; };
 
 async function cargarCatalogos() {
   const [s, e, d, ci] = await Promise.all([
@@ -763,7 +767,7 @@ async function cargarCobertura() {
 function pintarCobertura() {
   const d = diaHoy(), filtro = $('#aServ').value;
   const lista = servicios.filter(s => s.activo && (!filtro || s.id === filtro)).map(s => {
-    const req = cierreDe(s, hoyISO()) ? 0 : (reqDe(s)[d] || 0);
+    const req = reqFest(s, hoyISO(), reqDe(s)[d] || 0);
     const llegaron = new Set(entradasHoy.filter(r => r.servicio_id === s.id).map(r => r.empleado_id)).size;
     return { s, req, llegaron };
   }).filter(x => x.req > 0 || x.llegaron > 0);
@@ -1000,25 +1004,34 @@ $('#efPdf').onclick = async () => {
 function fvMsg(clase, t) { const m = $('#fvMsg'); m.className = 'msg ' + clase; m.textContent = t; m.hidden = !t; }
 function pintarFest() {
   const B = $('#fvBody');
-  if (!cierres.length) { B.innerHTML = '<tr><td colspan="4" class="empty">No hay días sin servicio. Toca <b>+ Agregar día sin servicio</b> cuando algunos servicios no abran por un festivo.</td></tr>'; return; }
-  // Agrupa por fecha + motivo: una fila con todos los servicios que no abrieron
+  if (!cierres.length) { B.innerHTML = '<tr><td colspan="4" class="empty">No hay festivos. Toca <b>+ Agregar festivo</b> cuando un servicio descanse o trabaje con menos guardias por un festivo.</td></tr>'; return; }
+  // Agrupa por fecha + motivo: una fila con todos los servicios de ese festivo
   const gr = new Map();
-  cierres.forEach(c => { const d = String(c.fecha).slice(0, 10), k = d + '|' + (c.motivo || ''); const g = gr.get(k) || { d, motivo: c.motivo || '', ids: [], todos: false, nombres: [] }; g.ids.push(c.id); if (!c.servicio_id) g.todos = true; else g.nombres.push((servicios.find(x => String(x.id) === String(c.servicio_id)) || {}).nombre || 'Servicio eliminado'); gr.set(k, g); });
+  cierres.forEach(c => { const d = String(c.fecha).slice(0, 10), k = d + '|' + (c.motivo || ''); const g = gr.get(k) || { d, motivo: c.motivo || '', ids: [], todos: false, nombres: [], items: [] }; g.ids.push(c.id);
+    const nom = c.servicio_id ? ((servicios.find(x => String(x.id) === String(c.servicio_id)) || {}).nombre || 'Servicio eliminado') : 'Todos los servicios';
+    if (!c.servicio_id) g.todos = true; g.nombres.push(nom); g.items.push({ nom, n: c.requeridos || 0 }); gr.set(k, g); });
   const lista = [...gr.values()].sort((a, b) => b.d.localeCompare(a.d) || a.motivo.localeCompare(b.motivo, 'es'));
-  B.innerHTML = lista.map((g, i) => `<tr><td class="mono">${fechaCorta(g.d)} <span class="sub" style="font-family:var(--body)">${NOM_DIA[dowDe(g.d)]}</span></td>
-    <td>${g.todos ? '<b>Todos los servicios</b>' : g.nombres.sort((a, b) => a.localeCompare(b, 'es')).map(esc).join(', ')}</td><td>${esc(g.motivo || '—')}</td>
+  B.innerHTML = lista.map((g, i) => `<tr><td class="mono" style="white-space:nowrap">${fechaCorta(g.d)} <span class="sub" style="font-family:var(--body)">${NOM_DIA[dowDe(g.d)]}</span></td>
+    <td>${g.items.sort((a, b) => a.nom.localeCompare(b.nom, 'es')).map(x => `<div><b style="font-weight:600">${esc(x.nom)}</b>: ${x.n > 0 ? `<span style="color:var(--ok);font-weight:600">trabajan ${x.n}</span>` : '<span class="sub">no abre</span>'}</div>`).join('')}</td><td>${esc(g.motivo || '—')}</td>
     <td style="text-align:right"><button class="btn sm" type="button" data-fvg="${i}" style="color:var(--bad)">Eliminar</button></td></tr>`).join('');
   $$('#fvBody [data-fvg]').forEach(b => b.onclick = () => borrarFest(lista[+b.dataset.fvg]));
 }
 $('#fvNuevo').onclick = () => {
-  $('#fvServs').innerHTML = servicios.filter(x => x.activo).map(x => `<label class="chk"><input type="checkbox" value="${x.id}"> ${esc(x.nombre)}</label>`).join('');
+  $('#fvServs').innerHTML = servicios.filter(x => x.activo).map(x => `<div style="display:flex;align-items:center;gap:8px"><label class="chk" style="flex:1;min-width:0"><input type="checkbox" value="${x.id}"> ${esc(x.nombre)}</label><span class="sub" data-n="${x.id}" style="font-size:12px;white-space:nowrap"></span><input type="number" min="0" value="0" disabled data-t="${x.id}" aria-label="Guardias que trabajan" style="width:64px;height:34px;text-align:center;border-radius:8px;border:1px solid var(--field)"></div>`).join('');
   $('#fvTodos').checked = false;
-  $('#fvDesde').value = hoyISO(); $('#fvHasta').value = ''; $('#fvMotivo').value = ''; $('#fvMsg2').hidden = true; $('#fvGuardar').disabled = false;
+  $('#fvDesde').value = hoyISO(); fvHints(); $('#fvHasta').value = ''; $('#fvMotivo').value = ''; $('#fvMsg2').hidden = true; $('#fvGuardar').disabled = false;
   $('#dFv').showModal();
 };
 $('#fvCancel').onclick = () => $('#dFv').close();
-$('#fvTodos').onchange = () => { $$('#fvServs input').forEach(c => { c.checked = $('#fvTodos').checked; }); };
-$('#fvServs').onchange = () => { const cs = $$('#fvServs input'); $('#fvTodos').checked = cs.length > 0 && cs.every(c => c.checked); };
+// Muestra cuántos requiere normalmente cada servicio ese día de la semana
+function fvHints() {
+  const d = $('#fvDesde').value || hoyISO();
+  $$('#fvServs [data-n]').forEach(sp => { const sv = servicios.find(x => String(x.id) === sp.dataset.n); sp.textContent = 'normal: ' + (sv ? (reqDe(sv)[dowDe(d)] || 0) : 0); });
+}
+$('#fvDesde').onchange = fvHints;
+const fvSync = () => { const cs = $$('#fvServs input[type=checkbox]'); cs.forEach(c => { c.closest('div').querySelector('[data-t]').disabled = !c.checked; }); $('#fvTodos').checked = cs.length > 0 && cs.every(c => c.checked); };
+$('#fvTodos').onchange = () => { $$('#fvServs input[type=checkbox]').forEach(c => { c.checked = $('#fvTodos').checked; }); fvSync(); };
+$('#fvServs').onchange = fvSync;
 $('#fFv').addEventListener('submit', async ev => {
   ev.preventDefault();
   const m = t => { $('#fvMsg2').textContent = t; $('#fvMsg2').hidden = false; };
@@ -1027,16 +1040,20 @@ $('#fFv').addEventListener('submit', async ev => {
   if (d2 < d1) return m('La fecha final no puede ser antes de la inicial.');
   const dias = []; for (let d = d1; d <= d2 && dias.length < 62; d = sumaDias(d, 1)) dias.push(d);
   if (dias.length > 31) return m('Máximo 31 días seguidos por captura.');
-  const svs = $$('#fvServs input:checked').map(c => c.value), motivo = $('#fvMotivo').value.trim() || null;
-  if (!svs.length) return m('Marca al menos un servicio que no abre ese día.');
-  const filas = [];
-  dias.forEach(d => svs.forEach(sv => { if (!cierres.some(c => String(c.fecha).slice(0, 10) === d && String(c.servicio_id || '') === String(sv))) filas.push({ fecha: d, servicio_id: sv, motivo }); }));
-  if (!filas.length) return m('Esa fecha ya estaba registrada para ese servicio.');
+  const svs = $$('#fvServs input[type=checkbox]:checked').map(c => ({ id: c.value, n: Math.max(0, parseInt(c.closest('div').querySelector('[data-t]').value, 10) || 0) })), motivo = $('#fvMotivo').value.trim() || null;
+  if (!svs.length) return m('Marca al menos un servicio con festivo.');
+  const nuevas = [], editar = [];
+  dias.forEach(d => svs.forEach(x => {
+    const ya = cierres.find(c => String(c.fecha).slice(0, 10) === d && String(c.servicio_id || '') === String(x.id));
+    if (ya) editar.push({ id: ya.id, requeridos: x.n, motivo }); else nuevas.push({ fecha: d, servicio_id: x.id, motivo, requeridos: x.n });
+  }));
   $('#fvGuardar').disabled = true;
-  const { error } = await sb.from('dias_sin_servicio').insert(filas);
-  if (error) { $('#fvGuardar').disabled = false; return m('No se pudo guardar: ' + (/dias_sin_servicio|schema cache|does not exist/i.test(error.message || '') ? 'falta correr sql/15_dias_sin_servicio.sql en Supabase.' : error.message)); }
+  let error = null;
+  if (nuevas.length) ({ error } = await sb.from('dias_sin_servicio').insert(nuevas));
+  for (const e of editar) { if (error) break; ({ error } = await sb.from('dias_sin_servicio').update({ requeridos: e.requeridos, motivo: e.motivo }).eq('id', e.id)); }
+  if (error) { $('#fvGuardar').disabled = false; return m('No se pudo guardar: ' + (/requeridos/i.test(error.message || '') ? 'falta correr sql/16_festivo_requeridos.sql en Supabase.' : /dias_sin_servicio|schema cache|does not exist/i.test(error.message || '') ? 'falta correr sql/15_dias_sin_servicio.sql en Supabase.' : error.message)); }
   $('#dFv').close(); await cargarCatalogos(); pintarFest();
-  fvMsg('ok', `Listo: ${dias.length} día${dias.length === 1 ? '' : 's'} sin servicio en ${svs.length} servicio${svs.length === 1 ? '' : 's'}. Los demás servicios abren normal.`);
+  fvMsg('ok', `Listo: festivo guardado en ${svs.length} servicio${svs.length === 1 ? '' : 's'}${dias.length > 1 ? ` por ${dias.length} días` : ''}. La cobertura de esa fecha usa los guardias que indicaste.`);
   if (!$('#secCobertura').hidden) cargarCob();
 });
 async function borrarFest(g) {
@@ -1419,7 +1436,7 @@ function calcularNoc(D, ids, regs) {
   const ini = new Date(horaISO(D, NOCHE_INI)).getTime(), fin = new Date(horaISO(sumaDias(D, 1), NOCHE_FIN)).getTime(), dia = new Date(horaISO(D, NOCHE_FIN)).getTime();
   const dow = dowDe(D);
   const grupos = ids.map(id => {
-    const s = servicios.find(x => x.id === id), req = cierreDe(s, D) ? 0 : (reqNoche(s)[dow] || 0);
+    const s = servicios.find(x => x.id === id), req = reqFestNoche(s, D, reqNoche(s)[dow] || 0);
     const vistos = new Set(), filas = [];
     regs.filter(r => r.servicio_id === id && r.tipo === 'Entrada').forEach(r => {
       const t = new Date(r.fecha_hora).getTime();
@@ -1590,7 +1607,7 @@ function calcularCob(D, regs, incs) {
     regs = regs.filter(x => x.tipo !== 'Entrada' || entradasOk.has(x.id));
   }
   const filas = (cobNoche ? serviciosNoche() : servicios).filter(s => !filtro || s.id === filtro).map(s => {
-    const req = s.activo ? (cierreDe(s, D) ? 0 : ((cobNoche ? reqNoche(s) : reqDe(s))[dow] || 0)) : 0;
+    const req = s.activo ? (cobNoche ? reqFestNoche(s, D, reqNoche(s)[dow] || 0) : reqFest(s, D, reqDe(s)[dow] || 0)) : 0;
     const primeras = new Map();                       // empleado → primera entrada del día
     regs.filter(x => x.servicio_id === s.id && x.tipo === 'Entrada').forEach(x => { if (!primeras.has(x.empleado_id)) primeras.set(x.empleado_id, x); });
     const llegadas = [...primeras.values()].sort((a, b) => a.fecha_hora.localeCompare(b.fecha_hora));
@@ -1636,7 +1653,7 @@ function pintarCob() {
   const hoy = c.D === hoyISO();
   if (cobNoche) $('#kSub').textContent = `${nocheTxt(c.D)} · elementos que checaron entrada de noche contra los requeridos de noche`;
   else $('#kSub').textContent = `${NOM_DIA[dowDe(c.D)][0].toUpperCase() + NOM_DIA[dowDe(c.D)].slice(1)} ${fechaCorta(c.D)} · elementos distintos que checaron entrada contra los requeridos del día${hoy ? ' · los turnos de la noche se suman cuando chequen' : ''}`;
-  { const cz = cierres.filter(x => String(x.fecha).slice(0, 10) === c.D); if (cz.length) $('#kSub').textContent += ' · Sin servicio ese día: ' + cz.map(x => (x.servicio_id ? ((servicios.find(v => String(v.id) === String(x.servicio_id)) || {}).nombre || 'un servicio') : 'todos los servicios') + (x.motivo ? ' (' + x.motivo + ')' : '')).join(', '); }
+  { const cz = cierres.filter(x => String(x.fecha).slice(0, 10) === c.D); if (cz.length) $('#kSub').textContent += ' · Festivo' + (cz[0].motivo ? ' (' + cz[0].motivo + ')' : '') + ': ' + cz.map(x => (x.servicio_id ? ((servicios.find(v => String(v.id) === String(x.servicio_id)) || {}).nombre || 'un servicio') : 'todos los servicios') + ((x.requeridos || 0) > 0 ? ` trabajan ${x.requeridos}` : ' no abre')).join(', '); }
   $('#kComp').textContent = c.comp; $('#kCub').textContent = c.cub; $('#kFal').textContent = c.fal; $('#kAdi').textContent = c.adi;
   $('#kCubPct').textContent = `${pctCob(c)}% de cobertura`;
   const max = Math.max(1, ...c.filas.map(f => Math.max(f.req, f.pres)));
